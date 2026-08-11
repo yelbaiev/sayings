@@ -1,0 +1,8 @@
+blank_issues_enabled: true
+contact_links:
+  - name: Setting it up on Cloudflare
+    url: https://github.com/yelbaiev/sayings/blob/main/SELF-HOSTING.md
+    about: Deploy, Access policy, updating, restoring a backup — read this first.
+  - name: Security vulnerability
+    url: https://github.com/yelbaiev/sayings/security/advisories/new
+    about: Report privately, not as a public issue. See SECURITY.md.

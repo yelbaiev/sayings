@@ -1,0 +1,97 @@
+{
+  "name": "sayings",
+  "version": "1.0.0",
+  "type": "module",
+  "license": "MIT",
+  "description": "SAYings — offline-first household finance and budgeting PWA you host on your own Cloudflare account",
+  "keywords": [
+    "budgeting",
+    "personal-finance",
+    "self-hosted",
+    "cloudflare-workers",
+    "offline-first",
+    "pwa"
+  ],
+  "scripts": {
+    "dev": "vite",
+    "build": "vite build",
+    "preview": "vite preview",
+    "deploy": "npm run db:backup && npm run db:migrate && vite build && node scripts/check-bundle.mjs && wrangler deploy -c \"$(node scripts/wrangler-config.mjs --built)\"",
+    "db:backup": "node scripts/db-backup.mjs",
+    "db:migrate": "wrangler d1 migrations apply DB --remote -c \"$(node scripts/wrangler-config.mjs --path)\"",
+    "db:restore": "node scripts/db-restore.mjs",
+    "lint": "eslint .",
+    "typecheck": "tsc -p tsconfig.json && tsc -p tsconfig.worker.json && tsc -p tsconfig.tests.json && tsc -p tsconfig.node.json",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "verify": "npm run lint && npm run typecheck && npm test",
+    "cf-typegen": "wrangler types"
+  },
+  "//deploy": "Backup, then migrate, then ship. The order is deliberate: an installation may be several versions behind and about to apply four migrations at once, with nobody but its owner able to fix it. Migrations reference the DB *binding*, not the database name, because the name differs per installation.",
+  "cloudflare": {
+    "label": "SAYings",
+    "products": [
+      "Workers",
+      "D1",
+      "R2"
+    ],
+    "bindings": {
+      "DB": {
+        "description": "Your household's ledger: accounts, categories, transactions, budgets and exchange rates. Nobody else can read it."
+      },
+      "FILES": {
+        "description": "Holds the nightly database snapshots and any receipt photos. Retention is 30 daily and 12 monthly."
+      },
+      "TEAM_DOMAIN": {
+        "description": "Your Cloudflare Zero Trust team domain, with the scheme — `https://your-team.cloudflareaccess.com`. Found in Zero Trust → Settings. Leave as CHANGEME for now: the app shows you where to get it after deploying."
+      },
+      "POLICY_AUD": {
+        "description": "The Access application's **Audience (AUD) Tag**, which only exists once you have created the Access policy. Leave as CHANGEME for now — the app will walk you through it."
+      },
+      "UPDATE_CHECK": {
+        "description": "`on` asks GitHub once a night whether a newer release exists, so Settings can tell you. Set to `off` to make no outbound requests at all. Nothing is ever sent anywhere either way."
+      }
+    }
+  },
+  "dependencies": {
+    "@simplewebauthn/browser": "^13.3.0",
+    "@simplewebauthn/server": "^13.3.2",
+    "@tanstack/react-virtual": "^3.14.9",
+    "class-variance-authority": "^0.7.1",
+    "clsx": "^2.1.1",
+    "dexie": "^4.4.4",
+    "dexie-react-hooks": "^4.4.0",
+    "hono": "^4.13.0",
+    "jose": "^6.2.8",
+    "lucide-react": "^1.30.0",
+    "radix-ui": "^1.6.7",
+    "react": "^19.2.8",
+    "react-dom": "^19.2.8",
+    "tailwind-merge": "^3.6.0",
+    "vaul": "^1.1.2",
+    "zod": "^4.4.3"
+  },
+  "devDependencies": {
+    "@cloudflare/vite-plugin": "^1.50.0",
+    "@cloudflare/vitest-pool-workers": "^0.20.2",
+    "@eslint/js": "^10.0.1",
+    "@tailwindcss/vite": "^4.3.3",
+    "@testing-library/react": "^16.3.2",
+    "@testing-library/user-event": "^14.6.3",
+    "@types/node": "^26.1.2",
+    "@types/react": "^19.2.18",
+    "@types/react-dom": "^19.2.4",
+    "@vitejs/plugin-react": "^6.0.5",
+    "eslint": "^10.8.0",
+    "eslint-plugin-react-hooks": "^7.1.1",
+    "globals": "^17.9.0",
+    "jsdom": "^30.0.1",
+    "tailwindcss": "^4.3.3",
+    "typescript": "^5.9.3",
+    "typescript-eslint": "^8.66.0",
+    "vite": "^8.2.0",
+    "vite-plugin-pwa": "^1.3.0",
+    "vitest": "^4.1.10",
+    "wrangler": "^4.118.0"
+  }
+}

@@ -1,0 +1,27 @@
+name: Idea or friction
+description: Something is missing, awkward, or wrong for your household
+labels: ["idea"]
+body:
+  - type: textarea
+    id: problem
+    attributes:
+      label: What are you trying to do
+      description: |
+        Describe the situation rather than the feature. "I split the supermarket bill with my
+        sister every week and there's no good way to track what she owes" tells more than
+        "add a debts feature".
+    validations:
+      required: true
+  - type: textarea
+    id: today
+    attributes:
+      label: How do you handle it now
+      description: Including "I don't" or "in a spreadsheet" — that is useful signal.
+  - type: input
+    id: currency
+    attributes:
+      label: Your currencies
+      description: |
+        Relevant more often than it sounds. The base currency is UAH today and not yet
+        configurable; if that is your blocker, say so here.
+      placeholder: "EUR base, occasional USD"

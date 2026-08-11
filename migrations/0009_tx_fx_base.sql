@@ -1,0 +1,21 @@
+-- Which currency a transaction's `base_amount_minor` is expressed in.
+--
+-- Denormalised deliberately, and it earns its place twice over.
+--
+-- It makes re-pricing **resumable**: the operation converts rows where this differs from the
+-- household's base, so an interrupted run is finished by simply running again, and a finished run does
+-- nothing. No progress table, no job state, no chance of converting a row twice — which in this
+-- operation would not fail, it would multiply an amount by a rate a second time and leave a plausible
+-- number behind.
+--
+-- It also makes a half-converted ledger **detectable**. Without it, a report over a range that
+-- straddles an interrupted re-pricing would silently add hryvnia figures to euro ones and produce a
+-- total that is wrong in a way nothing in the app could notice.
+--
+-- The default matches every existing row: they were all priced in hryvnia, because hryvnia was
+-- compiled into the build that wrote them.
+--
+-- Note this says nothing about `amount_minor`, which is in the account's own currency and is never
+-- touched by a base change. Account balances are reconciled against real cards; re-pricing moves the
+-- reporting roll-up and nothing else.
+ALTER TABLE transactions ADD COLUMN fx_base TEXT NOT NULL DEFAULT 'UAH';

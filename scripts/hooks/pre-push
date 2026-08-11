@@ -1,0 +1,114 @@
+#!/bin/sh
+#
+# Refuses to push anything carrying one installation's own identifiers.
+#
+# This repository is public and one branch deliberately is not: `live` holds the real Cloudflare
+# Access team domain, the audience tag, the D1 database id and the Worker's hostname. None of those
+# are credentials — the AUD travels inside every Access JWT and the team domain is in the sign-in URL
+# — but publishing them hands anyone the exact address to point a convincing phishing page at, and
+# there is no reason to.
+#
+# Two things this hook learned the hard way, both from failing in exactly the way it was meant to
+# prevent:
+#
+#  1. **It fails closed.** The first version ended its scan with `|| true`, so when the scan itself
+#     errored the hook reported "nothing found" and allowed the push. A check that cannot run must
+#     refuse, not wave things through.
+#  2. **It uses portable grep.** The error above was `grep -P`, which is GNU-only. It works in an
+#     interactive shell on this machine — homebrew's grep is earlier in PATH — and not inside a hook,
+#     which gets a different environment and reaches /usr/bin/grep. So the check was verified by hand,
+#     appeared to work, and did nothing where it mattered.
+#
+# The patterns are narrow on purpose. A hook that cries wolf is one people answer with --no-verify,
+# and then it protects nothing: an earlier draft flagged the words "`workers.dev` route" in the setup
+# guide and two test fixtures.
+#
+# Install:  git config core.hooksPath scripts/hooks
+# Bypass:   git push --no-verify
+
+remote_name="$1"
+
+# A team domain with a real subdomain. Placeholders and fixtures use your-team, team or example, and
+# are filtered out below rather than with a lookahead, which is not portable.
+TEAM='https://[a-z0-9][a-z0-9-]*\.cloudflareaccess\.com'
+# A deployed Worker hostname. A bare mention of "workers.dev" has no subdomain and will not match.
+WORKER='[a-z0-9][a-z0-9-]*\.[a-z0-9-]+\.workers\.dev'
+# A resource id actually assigned, rather than the empty string that `main` publishes.
+RESOURCE='"(database_id|account_id)"[[:space:]]*:[[:space:]]*"[0-9a-f]{8}-'
+# An audience tag, which is 64 hex characters and only ever real.
+POLICY='"POLICY_AUD"[[:space:]]*:[[:space:]]*"[0-9a-f]{32}'
+
+PATTERNS="$TEAM|$WORKER|$RESOURCE|$POLICY"
+# Documented placeholders and test fixtures. Matched against the whole line.
+# `example` is the reserved documentation domain and never a real installation, so a worker
+# hostname under it is a fixture — tests/worker/passkeys.test.ts derives the relying-party id from
+# the request host and needs a hostname shaped like a real one to do it.
+ALLOW='your-team|your-worker|//team\.cloudflareaccess|//example\.cloudflareaccess|\.example\.workers\.dev'
+
+# Refuse rather than proceed if the tools this depends on are not what it expects.
+if ! printf 'a\n' | grep -qE 'a' 2>/dev/null; then
+  echo "  pre-push: grep -E is unavailable, so the secret scan cannot run. Refusing." >&2
+  exit 1
+fi
+
+fail=0
+zero=0000000000000000000000000000000000000000
+
+while read -r _local_ref local_sha _remote_ref remote_sha; do
+  # Deleting a remote branch pushes nothing to inspect.
+  [ "$local_sha" = "$zero" ] && continue
+
+  if [ "$remote_sha" = "$zero" ]; then
+    # A branch the remote has never seen: inspect all of it rather than a range.
+    files=$(git ls-tree -r --name-only "$local_sha") || exit 1
+  else
+    files=$(git diff --name-only "$remote_sha" "$local_sha") || exit 1
+  fi
+
+  [ -z "$files" ] && continue
+
+  for file in $files; do
+    # A file this push deletes cannot leak anything.
+    git cat-file -e "$local_sha:$file" 2>/dev/null || continue
+
+    contents=$(git show "$local_sha:$file" 2>/dev/null)
+    # git show failing on a path is unexpected; treat it as unscanned rather than as clean.
+    if [ $? -ne 0 ]; then
+      echo "  pre-push: could not read $file to scan it. Refusing." >&2
+      exit 1
+    fi
+
+    # grep exits 1 for "no match", which is not an error — but any other status is, and must not be
+    # read as "nothing found".
+    hits=$(printf '%s\n' "$contents" | grep -nE "$PATTERNS" | grep -vE "$ALLOW")
+    status=$?
+    if [ "$status" -gt 1 ]; then
+      echo "  pre-push: the scan of $file failed (grep exit $status). Refusing." >&2
+      exit 1
+    fi
+
+    if [ -n "$hits" ]; then
+      if [ "$fail" -eq 0 ]; then
+        printf '\n  Refusing to push to %s: this carries one installation'"'"'s own\n' "$remote_name"
+        printf '  configuration, and this repository is public.\n\n'
+      fi
+      echo "  $file"
+      echo "$hits" | sed 's/^/      /'
+      fail=1
+    fi
+  done
+done
+
+if [ "$fail" -ne 0 ]; then
+  cat <<'EOF'
+
+  `live` is meant to stay on this machine. To publish a change, make it on `main` and merge
+  main into live to deploy — never the other direction.
+
+  If this really is intended:  git push --no-verify
+
+EOF
+  exit 1
+fi
+
+exit 0

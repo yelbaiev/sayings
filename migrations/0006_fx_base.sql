@@ -1,0 +1,15 @@
+-- Which currency a stored rate is expressed in.
+--
+-- Until now the base was implicit: every row in `fx_rates` meant "hryvnia per one unit of `quote`",
+-- because hryvnia was compiled into the build. With the base configurable, that implication becomes a
+-- silent reinterpretation — a household switching from hryvnia to euro would have five years of
+-- stored rates suddenly read as euro per unit, overstating every historical total by a factor of
+-- forty without a single error.
+--
+-- The default is correct for every existing row, which is the whole reason this can be one statement:
+-- anything already in the table was written by the hryvnia-only fetcher.
+--
+-- Not added to the primary key. The table holds rates in the household's *current* base, and a base
+-- change overwrites them through the existing (on_date, quote) conflict target rather than
+-- accumulating a second set nothing would ever read.
+ALTER TABLE fx_rates ADD COLUMN base TEXT NOT NULL DEFAULT 'UAH';

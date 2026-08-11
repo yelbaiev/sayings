@@ -1,0 +1,252 @@
+/*
+ * The layer order. `components.css` holds the three constructs that stay CSS on purpose — the
+ * keypad grid, the two-axis-sticky matrix, the collapse animation — below utilities, so a call
+ * site can still override them. During the migration a `legacy` layer sat here too; its story,
+ * including the release that shipped invisible because unlayered element resets beat every layered
+ * utility, is in ADR 0006 and the 1.8.4 changelog.
+ */
+@layer theme, base, components, utilities;
+
+@import "tailwindcss";
+@import "./components.css" layer(components);
+
+/*
+ * The shadcn/ui theme, adapted to this app. See docs/decisions/0006-shadcn-ui.md.
+ *
+ * This file is becoming the source of truth for every colour, radius and font as the migration
+ * proceeds; `tokens.css` retires when the last legacy screen is converted. Coexistence is governed
+ * by the layer order above.
+ *
+ * Rule for the whole migration: never put a utility class on an element still styled by a legacy
+ * class. One system per element.
+ */
+
+/*
+ * Dark mode keys off the `data-theme` attribute, not shadcn's `.dark` class.
+ *
+ * The app has a three-value preference — system, light, dark — stored per device. "System" is
+ * resolved here in CSS, which is what makes it flash-free and zero-JS: a `.dark` class would need a
+ * script to resolve the OS preference before first paint and re-resolve it on every OS change.
+ * Both selectors below must stay twins; the tokens test enforces it.
+ */
+@custom-variant dark {
+  &:where([data-theme="dark"], [data-theme="dark"] *) {
+    @slot;
+  }
+  @media (prefers-color-scheme: dark) {
+    &:where(:root:not([data-theme="light"]), :root:not([data-theme="light"]) *) {
+      @slot;
+    }
+  }
+}
+
+/*
+ * Hover gated on a real pointer.
+ *
+ * Tailwind v4's own hover variant is `@media (hover: hover)`, and that alone is the bug this app
+ * fixed once already: some phones match it, and the hover state sticks to whatever was tapped last.
+ * `pointer: fine` is the difference between a mouse and a thumb.
+ */
+@custom-variant hover {
+  @media (hover: hover) and (pointer: fine) {
+    &:hover {
+      @slot;
+    }
+  }
+}
+
+/*
+ * shadcn's zinc palette, verbatim, plus this app's own semantic colours.
+ *
+ * Money direction is the one place colour carries meaning: expense red, income green, transfer
+ * blue. Expense deliberately shares the destructive hue — spending and deleting point the same
+ * way — and no button ever gets a red *fill*, because a filled red button reads as either money or
+ * a primary action, and it is neither.
+ */
+:root {
+  --radius: 0.625rem;
+  --background: oklch(1 0 0);
+  --foreground: oklch(0.141 0.005 285.823);
+  --card: oklch(1 0 0);
+  --card-foreground: oklch(0.141 0.005 285.823);
+  --popover: oklch(1 0 0);
+  --popover-foreground: oklch(0.141 0.005 285.823);
+  --primary: oklch(0.21 0.006 285.885);
+  --primary-foreground: oklch(0.985 0 0);
+  --secondary: oklch(0.967 0.001 286.375);
+  --secondary-foreground: oklch(0.21 0.006 285.885);
+  --muted: oklch(0.967 0.001 286.375);
+  --muted-foreground: oklch(0.552 0.016 285.938);
+  /*
+   * `--shadcn-accent`, not `--accent`: the legacy tokens.css also defines `--accent` (the blue this
+   * app used as its brand colour), and both sets live on :root while the two systems coexist. This
+   * one is unlayered so it would win — turning every legacy accent (the FAB, active nav, focus
+   * rings) into a near-invisible zinc wash. The utility name `bg-accent` is unaffected; only the
+   * root variable is namespaced, and it can reclaim the plain name when tokens.css retires.
+   */
+  --shadcn-accent: oklch(0.967 0.001 286.375);
+  --accent-foreground: oklch(0.21 0.006 285.885);
+  --destructive: oklch(0.577 0.245 27.325);
+  --border: oklch(0.92 0.004 286.32);
+  --input: oklch(0.92 0.004 286.32);
+  --ring: oklch(0.705 0.015 286.067);
+
+  /* Money and status — this app's extension of the scheme. */
+  --expense: oklch(0.577 0.245 27.325);
+  --income: oklch(0.627 0.194 149.214);
+  --transfer: oklch(0.546 0.245 262.881);
+  --warning: oklch(0.769 0.188 70.08);
+}
+
+/* The dark twins. Two selectors, identical bodies — the tokens test keeps them in sync. */
+[data-theme="dark"] {
+  --background: oklch(0.141 0.005 285.823);
+  --foreground: oklch(0.985 0 0);
+  --card: oklch(0.21 0.006 285.885);
+  --card-foreground: oklch(0.985 0 0);
+  --popover: oklch(0.21 0.006 285.885);
+  --popover-foreground: oklch(0.985 0 0);
+  --primary: oklch(0.92 0.004 286.32);
+  --primary-foreground: oklch(0.21 0.006 285.885);
+  --secondary: oklch(0.274 0.006 286.033);
+  --secondary-foreground: oklch(0.985 0 0);
+  --muted: oklch(0.274 0.006 286.033);
+  --muted-foreground: oklch(0.705 0.015 286.067);
+  --shadcn-accent: oklch(0.274 0.006 286.033);
+  --accent-foreground: oklch(0.985 0 0);
+  --destructive: oklch(0.704 0.191 22.216);
+  --border: oklch(1 0 0 / 10%);
+  --input: oklch(1 0 0 / 15%);
+  --ring: oklch(0.552 0.016 285.938);
+
+  --expense: oklch(0.704 0.191 22.216);
+  --income: oklch(0.792 0.209 151.711);
+  --transfer: oklch(0.707 0.165 254.624);
+  --warning: oklch(0.828 0.189 84.429);
+}
+
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --background: oklch(0.141 0.005 285.823);
+    --foreground: oklch(0.985 0 0);
+    --card: oklch(0.21 0.006 285.885);
+    --card-foreground: oklch(0.985 0 0);
+    --popover: oklch(0.21 0.006 285.885);
+    --popover-foreground: oklch(0.985 0 0);
+    --primary: oklch(0.92 0.004 286.32);
+    --primary-foreground: oklch(0.21 0.006 285.885);
+    --secondary: oklch(0.274 0.006 286.033);
+    --secondary-foreground: oklch(0.985 0 0);
+    --muted: oklch(0.274 0.006 286.033);
+    --muted-foreground: oklch(0.705 0.015 286.067);
+    --shadcn-accent: oklch(0.274 0.006 286.033);
+    --accent-foreground: oklch(0.985 0 0);
+    --destructive: oklch(0.704 0.191 22.216);
+    --border: oklch(1 0 0 / 10%);
+    --input: oklch(1 0 0 / 15%);
+    --ring: oklch(0.552 0.016 285.938);
+
+    --expense: oklch(0.704 0.191 22.216);
+    --income: oklch(0.792 0.209 151.711);
+    --transfer: oklch(0.707 0.165 254.624);
+    --warning: oklch(0.828 0.189 84.429);
+  }
+}
+
+@theme inline {
+  /*
+   * The default palette dies here. With it gone, `bg-red-500` is not a mistake a review has to
+   * catch — it is a class that does not compile. Every colour in the app goes through the semantic
+   * variables above, which is the old "no raw colour in app.css" invariant made structural.
+   */
+  --color-*: initial;
+
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+  --color-card: var(--card);
+  --color-card-foreground: var(--card-foreground);
+  --color-popover: var(--popover);
+  --color-popover-foreground: var(--popover-foreground);
+  --color-primary: var(--primary);
+  --color-primary-foreground: var(--primary-foreground);
+  --color-secondary: var(--secondary);
+  --color-secondary-foreground: var(--secondary-foreground);
+  --color-muted: var(--muted);
+  --color-muted-foreground: var(--muted-foreground);
+  --color-accent: var(--shadcn-accent);
+  --color-accent-foreground: var(--accent-foreground);
+  --color-destructive: var(--destructive);
+  --color-border: var(--border);
+  --color-input: var(--input);
+  --color-ring: var(--ring);
+
+  --color-expense: var(--expense);
+  --color-income: var(--income);
+  --color-transfer: var(--transfer);
+  --color-warning: var(--warning);
+
+  /* Scrims and the odd on-colour glyph. Semantic names cover everything else. */
+  --color-white: #fff;
+  --color-black: #000;
+
+  --radius-sm: calc(var(--radius) - 4px);
+  --radius-md: calc(var(--radius) - 2px);
+  --radius-lg: var(--radius);
+  --radius-xl: calc(var(--radius) + 4px);
+
+  --font-sans:
+    -apple-system, "SF Pro Text", "Segoe UI Variable", "Segoe UI", Roboto, Inter, system-ui,
+    sans-serif;
+}
+
+/*
+ * App metrics, not theme: measurements the layout arithmetic and its tests depend on.
+ * `--tap` is the minimum target; a keypad key may never be shorter than it (test-enforced),
+ * and the short-screen override in components.css narrows the gap without crossing it.
+ */
+:root {
+  --tap: 44px;
+  --key-height: 56px;
+}
+
+/*
+ * Element base for the parts of a form the primitives do not wrap: this app deliberately keeps
+ * native <select> (the OS picker beats any custom menu on a phone), and several screens use bare
+ * inputs. Preflight strips their styling; this puts a theme-consistent one back.
+ */
+@layer base {
+  body {
+    background: var(--background);
+    color: var(--foreground);
+    font-family: var(--font-sans);
+  }
+
+  input:not([type="checkbox"]):not([type="radio"]):not([type="file"]):not([type="range"]),
+  select,
+  textarea {
+    width: 100%;
+    min-height: 2.75rem;
+    padding: 0.5rem 0.75rem;
+    border: 1px solid var(--input);
+    border-radius: var(--radius-md);
+    background: var(--background);
+    color: var(--foreground);
+    /* 16px: anything smaller makes iOS zoom the page on focus. */
+    font-size: 1rem;
+    font-family: inherit;
+  }
+
+  input::placeholder,
+  textarea::placeholder {
+    color: var(--muted-foreground);
+  }
+
+  :focus-visible {
+    outline: 2px solid var(--ring);
+    outline-offset: 2px;
+  }
+
+  a {
+    color: inherit;
+  }
+}

@@ -1,0 +1,52 @@
+{
+  "$schema": "node_modules/wrangler/config-schema.json",
+  "name": "sayings",
+  "main": "./worker/index.ts",
+  "compatibility_date": "2026-08-05",
+
+  "assets": {
+    "directory": "./dist/client/",
+    "not_found_handling": "single-page-application",
+    "binding": "ASSETS",
+    // The Worker handles the API; everything else is served as a static asset.
+    "run_worker_first": ["/api/*"]
+  },
+
+  "observability": { "enabled": true },
+
+  // Both are public identifiers rather than secrets — the AUD tag travels inside every Access
+  // JWT and the team domain is visible in the sign-in URL. They are still per-installation, and
+  // the Worker refuses to serve the app until they are set: an unset audience would make JWT
+  // verification meaningless, which on a finance app is the one failure worth being loud about.
+  //
+  // Fill these in from the Zero Trust dashboard. See SELF-HOSTING.md.
+  "vars": {
+    "TEAM_DOMAIN": "CHANGEME",
+    "POLICY_AUD": "CHANGEME",
+
+    // Set to "off" to stop the nightly release check from reaching api.github.com. Nothing is
+    // ever sent anywhere either way — the request only asks GitHub for the latest tag.
+    "UPDATE_CHECK": "on",
+
+    // The repository the release check asks about. Leave pointing at upstream after forking,
+    // otherwise you will only ever be told about your own releases.
+    "UPSTREAM_REPO": "yelbaiev/sayings"
+  },
+
+  // `database_id` is filled in automatically when deploying with the Deploy to Cloudflare
+  // button, or by `wrangler d1 create` if setting up by hand.
+  "d1_databases": [
+    {
+      "binding": "DB",
+      "database_name": "sayings",
+      "database_id": "",
+      "migrations_dir": "./migrations"
+    }
+  ],
+
+  "r2_buckets": [{ "binding": "FILES", "bucket_name": "sayings-files" }],
+
+  // 00:30 UTC: refresh FX rates, re-price anything saved offline without one, snapshot the whole
+  // household to R2, then check for a new release.
+  "triggers": { "crons": ["30 0 * * *"] }
+}

@@ -1,0 +1,16 @@
+-- Where a transaction's exchange rate came from.
+--
+-- Three values: 'auto' (a rate source priced it), 'manual' (someone typed the rate their bank
+-- actually used), and 'estimated' (no rate was available when it was recorded).
+--
+-- **This column is what makes a hand-entered rate safe.** `reconcileEstimatedRates` re-prices
+-- everything flagged `fx_estimated = 1` once a real rate arrives, which is right for a transaction
+-- saved offline and completely wrong for one whose rate was corrected on purpose: without a way to
+-- tell the two apart, the nightly cron would quietly replace the user's own figure with the central
+-- bank's, and the only symptom would be a number that drifted back overnight.
+--
+-- `fx_estimated` stays. It is what older clients write and read, and this app is self-hosted — a
+-- phone may keep serving a cached build for weeks after the Worker is updated. The default of 'auto'
+-- is correct for the rows that have it set to 0; the ones set to 1 are corrected by the follow-up
+-- statement in this file, which is safe to re-run because it is idempotent by construction.
+ALTER TABLE transactions ADD COLUMN fx_source TEXT NOT NULL DEFAULT 'auto';

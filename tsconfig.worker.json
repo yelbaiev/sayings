@@ -1,0 +1,32 @@
+// Worker config. Deliberately has no DOM lib: `shared/` is checked under both this and
+// tsconfig.json, which is what stops shared code from reaching for browser-only APIs.
+{
+  "compilerOptions": {
+    "target": "ES2022",
+    "lib": ["ES2022"],
+    "module": "ESNext",
+    "moduleResolution": "bundler",
+    // The pool's types provide the `cloudflare:test` module (env, SELF, applyD1Migrations).
+    "types": ["./worker-configuration.d.ts", "@cloudflare/vitest-pool-workers/types"],
+
+    "strict": true,
+    "noUncheckedIndexedAccess": true,
+    "noImplicitOverride": true,
+    "noUnusedLocals": true,
+    "noUnusedParameters": true,
+    "noFallthroughCasesInSwitch": true,
+    "exactOptionalPropertyTypes": true,
+    "verbatimModuleSyntax": true,
+
+    "isolatedModules": true,
+    "esModuleInterop": true,
+    "skipLibCheck": true,
+    "noEmit": true,
+
+    "baseUrl": ".",
+    "paths": {
+      "@shared/*": ["./shared/*"]
+    }
+  },
+  "include": ["worker", "shared", "tests/worker", "worker-configuration.d.ts"]
+}

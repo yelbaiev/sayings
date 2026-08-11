@@ -1,0 +1,9 @@
+// Unit tests. Separate from tsconfig.json because tests legitimately use Node APIs
+// (reading source files, for instance) while browser code must not.
+{
+  "extends": "./tsconfig.json",
+  "compilerOptions": {
+    "types": ["node", "vite/client"]
+  },
+  "include": ["tests/unit", "tests/dom", "src", "shared"]
+}

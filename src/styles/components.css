@@ -1,0 +1,246 @@
+/*
+ * The component CSS that outlives the utility migration — deliberately, not as leftovers.
+ *
+ * Three things live here, and each earns its place by being genuinely awkward as utilities:
+ * a five-column keypad grid with a spanning key and a height variable that tests read; a table
+ * with two sticky axes, zebra rows and per-cell backgrounds; and a collapse animation with an
+ * overflow-clip-margin subtlety. Everything references the theme variables from tailwind.css —
+ * a legacy token name here (--surface, --text-muted, --grey-*) is a bug, and a test says so.
+ */
+
+/* ------------------------------------------------------------------------------ keypad */
+
+/*
+ * The keypad is a layer of its own, above the sheet body: the hairline and the shadow say where
+ * the form ends and the controls begin, so tiles scrolling past clearly go *behind* something.
+ */
+.keypad {
+  background: var(--popover);
+  border-top: 1px solid var(--border);
+  box-shadow: 0 -6px 18px rgb(0 0 0 / 18%);
+  display: grid;
+  /* Operator column, three digit columns, and the equals key down the right. The operator column
+     is narrower: a glyph needs less room than a two-digit number, and the digits are what get hit. */
+  grid-template-columns: 0.8fr repeat(3, 1fr) 0.8fr;
+  gap: 0.5rem;
+  padding: 0.75rem 1rem 1rem;
+}
+
+.keypad__key {
+  display: grid;
+  place-items: center;
+  height: var(--key-height);
+  border-radius: var(--radius-lg);
+  background: var(--secondary);
+  border: 1px solid var(--border);
+  /* Deliberately large: the whole point of a custom pad over the OS keyboard. */
+  font-size: 22px;
+  font-weight: 500;
+}
+
+.keypad__key:active {
+  background: var(--border);
+}
+
+/* Spans the four rows on the right, where a calculator puts it. Not a save key: committing an
+   entry is a decision about the transaction, not an arithmetic one, and Save lives on the bar
+   above, reachable whether or not the pad is open. */
+.keypad__key--equals {
+  grid-row: span 4;
+  height: auto;
+}
+
+/* Operators sit a step back from the digits — the rarer press by a wide margin. The difference is
+   carried by the glyph, not the fill: a third surface level turned the keys into outlined holes in
+   light mode, where the extra level matched the sheet behind it. */
+.keypad__key--op {
+  color: var(--muted-foreground);
+  font-weight: 400;
+}
+
+/* Zero is the most-pressed key and the bottom row would otherwise be a cell short. */
+.keypad__key--zero {
+  grid-column: span 2;
+}
+
+/*
+ * A shorter keypad where the screen is short: on a 4.7" phone the difference between 56px and
+ * 48px keys is the last form field being visible or below the fold. Still above the 44px tap
+ * floor — the saving comes out of comfort, not reachability.
+ */
+@media (max-height: 740px) {
+  .keypad {
+    --key-height: 48px;
+    padding: 0.5rem 0.75rem 0.75rem;
+  }
+}
+
+/* ------------------------------------------------------------------------------ matrix */
+
+/*
+ * The category-by-period table.
+ *
+ * Reading a value means tracking a row and a column at once across a grid twelve columns wide.
+ * Rows alternate; columns get a separator rather than a second tint (striping both axes is a
+ * chequerboard); hover lights the whole row. The first column and header row are sticky, and a
+ * sticky cell needs an opaque background or the scrolling content shows through it.
+ */
+.matrix {
+  border-collapse: collapse;
+  width: max-content;
+  min-width: 100%;
+}
+
+.matrix th,
+.matrix td {
+  border-bottom: 1px solid var(--border);
+  /* Subtler than the row lines: there to guide, not to divide. */
+  border-right: 1px solid color-mix(in srgb, var(--border) 55%, transparent);
+  white-space: nowrap;
+}
+
+.matrix th:last-child,
+.matrix td:last-child {
+  border-right: none;
+}
+
+.matrix thead th {
+  position: sticky;
+  top: 0;
+  z-index: 2;
+  background: var(--card);
+  padding: 0.625rem 0.75rem;
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--muted-foreground);
+  text-align: right;
+}
+
+/*
+ * Written as `.matrix thead .matrix__corner`, not `.matrix__corner`: the z-index must beat the
+ * `z-index: 2` that `.matrix thead th` gives every header cell, and a lone class loses that
+ * fight on specificity. It lost it silently once — the corner dropped to the headers' own level,
+ * and the month cells, later in the DOM, painted straight over it on horizontal scroll.
+ */
+.matrix thead .matrix__corner {
+  left: 0;
+  /* Above both the sticky header and the sticky column, since it is where they cross. */
+  z-index: 3;
+  text-align: left;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+
+.matrix__category {
+  position: sticky;
+  left: 0;
+  z-index: 1;
+  background: var(--card);
+  padding: 0.5rem 0.75rem;
+  text-align: left;
+  font-weight: 500;
+}
+
+.matrix__cell {
+  padding: 0;
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+}
+
+.matrix__cell--total {
+  padding: 0.5rem 0.75rem;
+  font-weight: 600;
+}
+
+.matrix__value {
+  display: block;
+  width: 100%;
+  padding: 0.5rem 0.75rem;
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+}
+
+.matrix__empty {
+  display: block;
+  padding: 0.5rem 0.75rem;
+}
+
+/* Every other row, including its sticky first cell — tinted separately because that cell carries
+   its own opaque background to stop content showing through. */
+.matrix tbody tr:nth-child(even) td,
+.matrix tbody tr:nth-child(even) .matrix__category {
+  background: var(--muted);
+}
+
+.matrix__footer th,
+.matrix__footer td {
+  border-bottom: none;
+  border-top: 1px solid var(--border);
+  font-weight: 700;
+}
+
+.matrix__footer .matrix__category {
+  padding: 0.625rem 0.75rem;
+}
+
+@media (hover: hover) and (pointer: fine) {
+  /* The row under the cursor, first cell included. Stronger than the zebra so it reads as
+     "this one" rather than "an even one". */
+  .matrix tbody tr:hover td,
+  .matrix tbody tr:hover .matrix__category {
+    background: var(--shadcn-accent);
+  }
+
+  .matrix__value:hover {
+    color: var(--primary);
+  }
+}
+
+/* ----------------------------------------------------------------------------- privacy */
+
+/*
+ * Privacy mode, for recording the screen: one attribute on <html>, and everything marked
+ * `sensitive` becomes unreadable while staying exactly its size — layouts must not shift when
+ * the numbers vanish, or the recording shows the app rearranging itself.
+ *
+ * The blur is in `em` so a hero balance and a row's note line are equally illegible: a fixed
+ * pixel radius that hides 32px digits leaves 12px ones readable.
+ */
+[data-privacy] .sensitive,
+[data-privacy] .matrix__value,
+[data-privacy] .matrix__cell--total {
+  filter: blur(0.35em);
+}
+
+/* -------------------------------------------------------------------------- collapsible */
+
+/*
+ * Chrome that hides on scroll — the history filters.
+ *
+ * It used to collapse its *height*, which reclaimed the space but moved the list by ~200px under a
+ * finger mid-scroll: the jerk the user reported twice. Now it fades and slides without leaving the
+ * layout — the list never moves, which on a touch screen matters more than the reclaimed rows.
+ * `clip` with a margin keeps the focus ring whole; `clip` also creates no scroll container.
+ */
+.collapsible {
+  overflow: clip;
+  overflow-clip-margin: 6px;
+  opacity: 1;
+  transform: none;
+  transition:
+    opacity 180ms ease,
+    transform 180ms ease;
+}
+
+.collapsible--hidden {
+  opacity: 0;
+  transform: translateY(-8px);
+  /* Not interactive while hidden, so nothing is tabbable behind the fade. */
+  pointer-events: none;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .collapsible {
+    transition: none;
+  }
+}

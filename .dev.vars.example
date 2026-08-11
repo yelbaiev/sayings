@@ -1,0 +1,21 @@
+# SAYings — local development environment
+#
+# Copy to `.dev.vars` (gitignored) for `npm run dev`. Also read by the Deploy to Cloudflare
+# button, which prompts for each value listed here when someone deploys their own copy.
+#
+# Nothing in here is a secret today, and nothing secret should ever be added to it.
+# These two values are set in wrangler.jsonc "vars" for deploys, and in .dev.vars
+# (gitignored) for local development. Copy this file to .dev.vars to work locally.
+#
+# If a real secret is ever needed, it goes in `wrangler secret put NAME` — never in
+# a file, never in source, never in a commit.
+
+# Your Cloudflare Zero Trust team domain, including the scheme.
+# Zero Trust dashboard → Settings → Custom Pages (the team domain is shown at the top).
+TEAM_DOMAIN=https://your-team.cloudflareaccess.com
+
+# The Access application's Audience (AUD) tag.
+# Zero Trust dashboard → Access → Applications → sayFinance → Overview → Application Audience (AUD) Tag.
+# This is a public identifier, not a credential — but the Worker refuses to start without it,
+# because an unset audience would make JWT validation meaningless.
+POLICY_AUD=
