@@ -259,6 +259,11 @@ export function formatExpression(
     .join(" ");
 }
 
+/** True when nothing has been keyed at all — not a zero, an absence. */
+export function isEmpty(expression: Expression): boolean {
+  return expression.terms.length === 0 && expression.current === "";
+}
+
 /**
  * True when a partial expression is showing, so the UI can hint that a term is pending —
  * otherwise `120+` looks identical to `120`.

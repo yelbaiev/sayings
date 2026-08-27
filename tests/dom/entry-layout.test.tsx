@@ -295,6 +295,34 @@ describe("the amount display", () => {
   });
 });
 
+describe("the empty amount field", () => {
+  const shown = () => screen.getByLabelText("Сумма").textContent ?? "";
+
+  it("shows a zero until it is tapped, then waits empty", async () => {
+    /*
+     * A `0` in an active field is a value the field does not have: the first digit looks like it
+     * replaced something. Closed, the zero stays — a blank field with no pad under it reads as
+     * broken rather than as ready.
+     */
+    open();
+    expect(shown()).toMatch(/^0\s*₴$/u);
+
+    await userEvent.click(await screen.findByLabelText("Сумма"));
+    expect(shown()).toBe("");
+  });
+
+  it("fills from the first digit and empties again on backspace", async () => {
+    open();
+    await userEvent.click(await screen.findByLabelText("Сумма"));
+
+    await userEvent.click(screen.getByRole("button", { name: "7" }));
+    expect(shown()).toMatch(/^7\s*₴$/u);
+
+    await userEvent.click(screen.getByRole("button", { name: "Назад" }));
+    expect(shown()).toBe("");
+  });
+});
+
 describe("keypad feedback", () => {
   const shown = () => screen.getByLabelText("Сумма").textContent ?? "";
 

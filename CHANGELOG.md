@@ -1,5 +1,10 @@
 # Changelog
 
+## Version 1.0.3
+
+- Changed: tapping the amount clears the placeholder `0` and waits, so the first digit typed is
+  the first thing in the field rather than a replacement for a number that was never entered
+
 ## Version 1.0.2
 
 - Added: keys answer the press. Each one flashes as it fires, and asks the phone for a short haptic

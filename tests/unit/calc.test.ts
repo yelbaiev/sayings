@@ -6,6 +6,7 @@ import {
   expressionTokens,
   formatExpression,
   hasAmount,
+  isEmpty,
   isPartial,
   pressBackspace,
   pressEquals,
@@ -158,6 +159,13 @@ describe("the expression as typed", () => {
     expressionTokens(type(keys, currency))
       .map((token) => (token.kind === "term" ? token.text : token.operator))
       .join(" ");
+
+  it("knows the difference between nothing and a zero", () => {
+    // The amount field blanks on the first of these and not the second.
+    expect(isEmpty(EMPTY_EXPRESSION)).toBe(true);
+    expect(isEmpty(type("0"))).toBe(false);
+    expect(isEmpty(type("120+"))).toBe(false);
+  });
 
   it("has one term before an operator is pressed", () => {
     expect(shown("120")).toBe("120");

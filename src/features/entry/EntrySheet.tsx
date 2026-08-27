@@ -12,6 +12,7 @@ import {
   evaluate,
   formatExpression,
   fromMinor,
+  isEmpty,
   pressBackspace,
   pressDecimal,
   pressDigit,
@@ -197,8 +198,16 @@ export function EntrySheet({
   const amountMinor = evaluate(expression, currency);
   /** What this costs the household, at whatever rate is in force — source or corrected. */
   const convertedMinor = Math.round(amountMinor * (manualRate ?? resolvedRate?.rate ?? 1));
-  /** The amount line: the expression as typed, or the figure once there is only a figure. */
-  const amountText = formatExpression(expression, currency, locale);
+  /*
+   * The amount line: the expression as typed, or the figure once there is only a figure.
+   *
+   * Empty while the pad is open and nothing has been keyed. A `0` sitting in an active field is a
+   * value the field does not have — it reads as an amount already entered, and the first digit
+   * then looks like it replaced something rather than like it was the first thing typed. Closed
+   * and empty, the `0` comes back: a blank field with no keypad under it looks broken.
+   */
+  const amountText =
+    isEmpty(expression) && keypadOpen ? "" : formatExpression(expression, currency, locale);
   /*
    * The figure shrinks rather than clipping, the way a calculator's does. A receipt of three or
    * four terms is longer than any single amount, and losing the end of it — which is the part
