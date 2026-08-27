@@ -1,5 +1,14 @@
 # Changelog
 
+## Version 1.0.2
+
+- Added: keys answer the press. Each one flashes as it fires, and asks the phone for a short haptic
+  tick where the platform allows one
+- Changed: keys register on the way down rather than on the lift, so a fast run of digits does not
+  lose the press that slid a few pixels off its key
+- Fixed: long-pressing a key selected its glyph and raised the text-selection callout over the pad
+- Changed: two quick presses on the same key are "00" rather than a request to zoom
+
 ## Version 1.0.1
 
 - Changed: the amount field now shows what you type instead of what it adds up to. `120 + 45 + 90`

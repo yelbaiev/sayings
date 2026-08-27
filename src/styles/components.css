@@ -16,6 +16,17 @@
  */
 .keypad {
   background: var(--popover);
+  /*
+   * A pad is held, not read. Long-pressing a key was selecting its glyph and raising the
+   * text-selection callout over the keys underneath, and the browser's own grey tap flash fought
+   * the one below. Both go, along with double-tap zoom: two quick presses on the same key are
+   * "00", never a request to magnify.
+   */
+  user-select: none;
+  -webkit-user-select: none;
+  -webkit-touch-callout: none;
+  -webkit-tap-highlight-color: transparent;
+  touch-action: manipulation;
   border-top: 1px solid var(--border);
   box-shadow: 0 -6px 18px rgb(0 0 0 / 18%);
   display: grid;
@@ -36,11 +47,50 @@
   /* Deliberately large: the whole point of a custom pad over the OS keyboard. */
   font-size: 22px;
   font-weight: 500;
+  /* Keys own their gestures. Since a press fires on the way down, a drag that starts on a key is a
+     press that wandered rather than a scroll of the form — and the pad is a fixed footer, so
+     refusing to pan from here makes nothing unreachable. */
+  touch-action: none;
 }
 
 .keypad__key:active {
   background: var(--border);
 }
+
+/*
+ * The press flash: the key inverts and springs back over 200ms.
+ *
+ * An animation rather than `:active` alone, because `:active` lasts exactly as long as the finger
+ * is down — on a fast run of digits that is a few milliseconds, too short to see. This plays to
+ * the end whether the press was a jab or a hold, so every key that fired says so. Held keys still
+ * get `:active` above once it finishes.
+ *
+ * Only the `from` frame is written: a property named in one keyframe animates back to whatever the
+ * key's own value is, so the operator column returns to its muted grey and the digits to theirs
+ * without either being restated here.
+ */
+@keyframes keypad-press {
+  from {
+    background: var(--primary);
+    color: var(--primary-foreground);
+    border-color: var(--primary);
+    transform: scale(0.94);
+  }
+}
+
+/* The same flash without the squeeze, for people who have asked the OS for less movement. */
+@keyframes keypad-press-still {
+  from {
+    background: var(--primary);
+    color: var(--primary-foreground);
+    border-color: var(--primary);
+  }
+}
+
+.keypad__key--flash {
+  animation: keypad-press 200ms ease-out;
+}
+
 
 /* Spans the four rows on the right, where a calculator puts it. Not a save key: committing an
    entry is a decision about the transaction, not an arithmetic one, and Save lives on the bar
@@ -240,6 +290,10 @@
 }
 
 @media (prefers-reduced-motion: reduce) {
+  .keypad__key--flash {
+    animation-name: keypad-press-still;
+  }
+
   .collapsible {
     transition: none;
   }

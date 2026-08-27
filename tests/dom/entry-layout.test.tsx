@@ -1,4 +1,4 @@
-import { screen, within } from "@testing-library/react";
+import { fireEvent, screen, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { describe, expect, it, vi } from "vitest";
 import type { Account, Category } from "@shared/schema";
@@ -292,5 +292,39 @@ describe("the amount display", () => {
     await press("1", "2", "0", "Плюс", "3", "0", "Равно");
     await press("5", "3");
     expect(shown()).toMatch(/^53\s*₴$/u);
+  });
+});
+
+describe("keypad feedback", () => {
+  const shown = () => screen.getByLabelText("Сумма").textContent ?? "";
+
+  it("registers the press on the way down, not on the lift", async () => {
+    /*
+     * Waiting for the lift costs the length of the press, and a press that slides a few pixels off
+     * its key produces no click at all — which is how a fast run of digits quietly loses one.
+     */
+    open();
+    await userEvent.click(await screen.findByLabelText("Сумма"));
+
+    fireEvent.pointerDown(screen.getByRole("button", { name: "7" }));
+    expect(shown()).toMatch(/^7/u);
+  });
+
+  it("counts a press once, not once down and once up", async () => {
+    // The pointer path and the click path both fire the key; only one of them may win per press.
+    open();
+    await userEvent.click(await screen.findByLabelText("Сумма"));
+
+    await userEvent.click(screen.getByRole("button", { name: "7" }));
+    expect(shown()).toMatch(/^7\s*₴$/u);
+  });
+
+  it("marks the key it fired, so the press is visible however briefly it was held", async () => {
+    open();
+    await userEvent.click(await screen.findByLabelText("Сумма"));
+
+    const seven = screen.getByRole("button", { name: "7" });
+    fireEvent.pointerDown(seven);
+    expect(seven.className).toContain("keypad__key--flash");
   });
 });

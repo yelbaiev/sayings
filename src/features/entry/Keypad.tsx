@@ -10,6 +10,7 @@ import {
   type Expression,
 } from "~/lib/calc";
 import { decimalSeparator } from "~/lib/format";
+import { tapFeedback } from "~/lib/haptics";
 
 /**
  * The custom numeric pad.
@@ -27,10 +28,30 @@ import { decimalSeparator } from "~/lib/format";
  * that appeared only after an operator had been pressed, which meant × and − were invisible until you
  * already knew they existed.
  *
+ * Keys fire on pointer *down* and give their own feedback — a colour flash and, where the platform
+ * allows it, a haptic tick. A pad that waits for the finger to lift before doing anything reads as
+ * slow at the speed an amount is actually typed, and one that does nothing visible until the number
+ * above changes reads as a dropped press. See `flash` below and `~/lib/haptics`.
+ *
  * There is no save key. Saving is a button above the pad that is present whether or not the pad is
  * open, because two ways to commit — one of which appears and disappears — is two things to learn and
  * one of them is always missing.
  */
+const FLASH_CLASS = "keypad__key--flash";
+
+/**
+ * Replays the press animation on one key.
+ *
+ * The class has to come off and go back on with a layout read between: without the read the
+ * browser coalesces the two mutations into no change at all, and the second press of the same key
+ * — every "00", every double-tapped backspace — would show nothing.
+ */
+function flash(element: HTMLElement): void {
+  element.classList.remove(FLASH_CLASS);
+  void element.offsetWidth;
+  element.classList.add(FLASH_CLASS);
+}
+
 export function Keypad({
   expression,
   currency,
@@ -48,14 +69,35 @@ export function Keypad({
 
   const key = (
     label: string,
-    onClick: () => void,
+    act: () => void,
     options: { ariaLabel?: string | undefined; className?: string | undefined } = {},
   ) => (
     <button
       key={label}
       type="button"
       className={options.className ? `keypad__key ${options.className}` : "keypad__key"}
-      onClick={onClick}
+      /*
+       * Down, not up. Waiting for the lift costs the length of the press — a tenth of a second
+       * that is invisible on one key and obvious across "1 2 4 0 , 5 0" — and a press that slides
+       * a few pixels off the key never produces a click at all, which is how a fast run of digits
+       * loses one.
+       */
+      onPointerDown={(event) => {
+        flash(event.currentTarget);
+        tapFeedback();
+        act();
+      }}
+      /*
+       * The keyboard's own path. A click from Enter or Space carries no pointer behind it and
+       * reports `detail: 0`; a click that follows a real press reports 1 and is dropped here,
+       * because that key already fired on the way down.
+       */
+      onClick={(event) => {
+        if (event.detail !== 0) return;
+        flash(event.currentTarget);
+        act();
+      }}
+      onAnimationEnd={(event) => event.currentTarget.classList.remove(FLASH_CLASS)}
       aria-label={options.ariaLabel ?? label}
     >
       {label}
@@ -79,14 +121,10 @@ export function Keypad({
       {digit("1")}
       {digit("2")}
       {digit("3")}
-      <button
-        type="button"
-        className="keypad__key keypad__key--equals"
-        onClick={() => onChange(pressEquals(expression, currency))}
-        aria-label={t("entry.equals")}
-      >
-        =
-      </button>
+      {key("=", () => onChange(pressEquals(expression, currency)), {
+        ariaLabel: t("entry.equals"),
+        className: "keypad__key--equals",
+      })}
 
       {operator("-", t("entry.subtract"))}
       {digit("4")}
