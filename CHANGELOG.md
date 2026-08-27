@@ -1,5 +1,17 @@
 # Changelog
 
+## Version 1.0.1
+
+- Changed: the amount field now shows what you type instead of what it adds up to. `120 + 45 + 90`
+  stays on screen as `120 + 45 + 90`, and the result appears when you press `=` — the way a
+  calculator behaves
+- Fixed: the decimal key did nothing visible until a second fraction digit arrived. `45`, `45,`,
+  `45,4` and `45,40` are now four different displays, so every press moves the figure
+- Fixed: typing a new amount straight after `=` kept only the last digit — `=53` entered 53 as 3
+- Added: `=` and `÷` on a hardware keyboard, matching the keys the pad already has
+- Changed: the decimal key does nothing in currencies with no minor unit, instead of accepting a
+  separator and then refusing every digit after it
+
 ## Version 1.0.0
 
 First public release. Household finance for two people, running entirely on your own Cloudflare

@@ -3,7 +3,8 @@ import { describe, expect, it } from "vitest";
 import {
   EMPTY_EXPRESSION,
   evaluate,
-  expressionTerms,
+  expressionTokens,
+  formatExpression,
   hasAmount,
   isPartial,
   pressBackspace,
@@ -20,14 +21,12 @@ function type(keys: string, currency: Currency = "UAH"): Expression {
   let expression = EMPTY_EXPRESSION;
   for (const key of keys) {
     if (key >= "0" && key <= "9") expression = pressDigit(expression, key, currency);
-    else if (key === ".") expression = pressDecimal(expression);
-    else if (key === "+" || key === "-" || key === "*") {
-      expression = pressOperator(expression, key, currency);
-    } else if (key === "/") {
-      expression = pressOperator(expression, "/", currency);
+    else if (key === ".") expression = pressDecimal(expression, currency);
+    else if (key === "+" || key === "-" || key === "*" || key === "/") {
+      expression = pressOperator(expression, key);
     } else if (key === "=") {
       expression = pressEquals(expression, currency);
-    } else if (key === "<") expression = pressBackspace(expression, currency);
+    } else if (key === "<") expression = pressBackspace(expression);
   }
   return expression;
 }
@@ -119,7 +118,7 @@ describe("backspace", () => {
   });
 
   it("does nothing on an empty expression", () => {
-    expect(pressBackspace(EMPTY_EXPRESSION, "UAH")).toEqual(EMPTY_EXPRESSION);
+    expect(pressBackspace(EMPTY_EXPRESSION)).toEqual(EMPTY_EXPRESSION);
   });
 });
 
@@ -138,9 +137,9 @@ describe("security", () => {
 
   it("is unfazed by junk in the current term", () => {
     const hostile: Expression = {
+      terms: [],
+      operators: [],
       current: "1+1); process.exit(",
-      accumulated: null,
-      pendingOperator: null,
     };
     // Unparseable, so it contributes nothing — no throw, no execution.
     expect(evaluate(hostile, "UAH")).toBe(0);
@@ -153,61 +152,83 @@ describe("security", () => {
   });
 });
 
-describe("expressionTerms", () => {
-  const type = (keys: string) =>
-    [...keys].reduce<Expression>((expression, key) => {
-      if (key === "+") return pressOperator(expression, "+", "UAH");
-      if (key === "*") return pressOperator(expression, "*", "UAH");
-      return pressDigit(expression, key, "UAH");
-    }, EMPTY_EXPRESSION);
+describe("the expression as typed", () => {
+  /** The tokens, flattened to something readable, so a failure names the keys that produced it. */
+  const shown = (keys: string, currency: Currency = "UAH") =>
+    expressionTokens(type(keys, currency))
+      .map((token) => (token.kind === "term" ? token.text : token.operator))
+      .join(" ");
 
-  it("has nothing to show before an operator is pressed", () => {
-    expect(expressionTerms(type("120"), "UAH")).toEqual({
-      left: null,
-      operator: null,
-      right: null,
-    });
+  it("has one term before an operator is pressed", () => {
+    expect(shown("120")).toBe("120");
+    expect(shown("")).toBe("");
   });
 
-  it("shows the running total and the operator with no second term yet", () => {
-    // "120 +" — the state right after pressing the operator. Previously this rendered as the
-    // total 120 next to a bare "+", which said nothing about what was about to happen.
-    expect(expressionTerms(type("120+"), "UAH")).toEqual({
-      left: 12_000,
-      operator: "+",
-      right: null,
-    });
+  it("keeps every term, not a running total", () => {
+    /*
+     * The regression this file exists to prevent. The old shape kept only an accumulator, so
+     * "120+45+90" showed "165 + 90" — two of the three numbers typed were gone from the screen,
+     * which is exactly what makes a mistyped receipt line impossible to spot.
+     */
+    expect(shown("120+45+90")).toBe("120 + 45 + 90");
+    expect(shown("120*3")).toBe("120 * 3");
   });
 
-  it("shows both terms once the second is being typed", () => {
-    expect(expressionTerms(type("120+45"), "UAH")).toEqual({
-      left: 12_000,
-      operator: "+",
-      right: 4_500,
-    });
+  it("shows a term still waiting for its right-hand side", () => {
+    expect(shown("120+")).toBe("120 +");
+    expect(isPartial(type("120+"))).toBe(true);
   });
 
-  it("carries the running total forward across several operators", () => {
-    // The expression itself is not retained, only the total — so after the second "+" the left
-    // side is 165, not 120.
-    expect(expressionTerms(type("120+45+90"), "UAH")).toEqual({
-      left: 16_500,
-      operator: "+",
-      right: 9_000,
-    });
+  it("keeps a half-typed fraction exactly as keyed", () => {
+    // Every one of these is a distinct display, and the parsed value cannot tell them apart.
+    expect(shown("45.")).toBe("45.");
+    expect(shown("45.0")).toBe("45.0");
+    expect(shown("45.04")).toBe("45.04");
   });
 
-  it("treats a lone decimal point as nothing typed yet", () => {
-    expect(expressionTerms(type("120+"), "UAH").right).toBeNull();
-    expect(expressionTerms({ ...type("120+"), current: "." }, "UAH").right).toBeNull();
+  it("collapses to a single term once = is pressed", () => {
+    expect(shown("120+45=")).toBe("165");
+    expect(isPartial(type("120+45="))).toBe(false);
+  });
+});
+
+describe("formatExpression", () => {
+  it("shows a plain amount with its currency symbol", () => {
+    // ru groups with a space and puts the symbol last; the figure itself is what was typed.
+    expect(formatExpression(type("1240.50"), "UAH", "ru")).toMatch(/^1\u00a0240,50\s*₴$/u);
+    expect(formatExpression(EMPTY_EXPRESSION, "UAH", "ru")).toMatch(/^0\s*₴$/u);
   });
 
-  it("reports a multiplier as a plain value", () => {
-    expect(expressionTerms(type("120*3"), "UAH")).toEqual({
-      left: 12_000,
-      operator: "*",
-      right: 300,
-    });
+  it("echoes each keystroke after the separator", () => {
+    /*
+     * The bug, stated as four assertions: these four states drew as "45", "45,", "45" and "45,40"
+     * when the display rendered the parsed value, so the two middle keypresses did nothing
+     * visible and the last one seemed to jump.
+     */
+    expect(formatExpression(type("45"), "UAH", "ru")).toMatch(/^45\s*₴$/u);
+    expect(formatExpression(type("45."), "UAH", "ru")).toMatch(/^45,\s*₴$/u);
+    expect(formatExpression(type("45.4"), "UAH", "ru")).toMatch(/^45,4\s*₴$/u);
+    expect(formatExpression(type("45.40"), "UAH", "ru")).toMatch(/^45,40\s*₴$/u);
+    expect(formatExpression(type("45.0"), "UAH", "ru")).toMatch(/^45,0\s*₴$/u);
+  });
+
+  it("shows the working, with typographic operators and no symbol", () => {
+    // No currency symbol mid-expression: it has nowhere honest to sit while a term is missing,
+    // and "120 + ₴" reads as a typo rather than as an amount.
+    expect(formatExpression(type("120+45"), "UAH", "ru")).toBe("120 + 45");
+    expect(formatExpression(type("120+"), "UAH", "ru")).toBe("120 +");
+    expect(formatExpression(type("120-45"), "UAH", "ru")).toBe("120 − 45");
+    expect(formatExpression(type("6*45"), "UAH", "ru")).toBe("6 × 45");
+    expect(formatExpression(type("120/3"), "UAH", "ru")).toBe("120 ÷ 3");
+  });
+
+  it("shows the result, with the symbol back, only after =", () => {
+    expect(formatExpression(type("120+45"), "UAH", "ru")).toBe("120 + 45");
+    expect(formatExpression(type("120+45="), "UAH", "ru")).toMatch(/^165\s*₴$/u);
+  });
+
+  it("puts the symbol where the locale puts it", () => {
+    expect(formatExpression(type("1240"), "USD", "en")).toBe("$1,240");
   });
 });
 
@@ -255,5 +276,37 @@ describe("equals", () => {
   it("does nothing when there is nothing pending", () => {
     expect(evaluate(type("120=", "UAH"), "UAH")).toBe(12_000);
     expect(evaluate(type("=", "UAH"), "UAH")).toBe(0);
+  });
+});
+
+describe("after equals", () => {
+  it("keeps every digit of the number typed next", () => {
+    /*
+     * `settled` used to survive the first digit, so it reset the term again on the second: "=53"
+     * kept only the 3. Typing a fresh amount straight after a total is common enough — one total,
+     * then the next receipt — that it looked like the pad dropping keypresses.
+     */
+    expect(evaluate(type("120+30=53"), "UAH")).toBe(5300);
+    expect(evaluate(type("120+30=1.25"), "UAH")).toBe(125);
+  });
+
+  it("carries the result forward when an operator comes next", () => {
+    // The calculator reading: the total becomes the left-hand side.
+    expect(evaluate(type("120+30=+5"), "UAH")).toBe(15_500);
+  });
+
+  it("edits the result rather than discarding it on backspace", () => {
+    expect(evaluate(type("120+30=<"), "UAH")).toBe(1500);
+    // And what is left is a typed number again, so the next digit extends it.
+    expect(evaluate(type("120+30=<7"), "UAH")).toBe(15_700);
+  });
+});
+
+describe("currencies without a minor unit", () => {
+  it("ignores the decimal key entirely", () => {
+    // A yen has no fraction, so every digit after a point would be refused. A key that appears
+    // to work and then swallows the next three presses is worse than one that does nothing.
+    expect(type("100.5", "JPY").current).toBe("1005");
+    expect(evaluate(type("100.5", "JPY"), "JPY")).toBe(1005);
   });
 });

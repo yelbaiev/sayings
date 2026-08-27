@@ -235,3 +235,62 @@ describe("the pending decimal separator", () => {
     expect(amount.textContent).toMatch(/45,5/u);
   });
 });
+
+describe("the amount display", () => {
+  /** Taps the pad, by the labels the keys carry. */
+  const press = async (...labels: string[]) => {
+    for (const label of labels) {
+      await userEvent.click(screen.getByRole("button", { name: label }));
+    }
+  };
+
+  const shown = () => screen.getByLabelText("Сумма").textContent ?? "";
+
+  it("shows the working while it is being typed, and the answer only after =", async () => {
+    /*
+     * The old display showed the running total in the biggest type on screen: "120 + 45" drew as
+     * 165, a number nobody had typed, and the terms that made it were gone. Now the line echoes
+     * the keys, and only = collapses it.
+     */
+    open();
+    await userEvent.click(await screen.findByLabelText("Сумма"));
+
+    await press("1", "2", "0");
+    expect(shown()).toMatch(/^120\s*₴$/u);
+
+    await press("Плюс");
+    expect(shown()).toBe("120 +");
+
+    await press("4", "5");
+    expect(shown()).toBe("120 + 45");
+
+    // Still the working, not the answer — the third term joins the line rather than replacing it.
+    await press("Плюс", "9", "0");
+    expect(shown()).toBe("120 + 45 + 90");
+
+    await press("Равно");
+    expect(shown()).toMatch(/^255\s*₴$/u);
+  });
+
+  it("moves on every keypress after the separator", async () => {
+    // The report: "I don't see any changes before I put 40 if I need xx,40".
+    open();
+    await userEvent.click(await screen.findByLabelText("Сумма"));
+
+    await press("4", "5", "Дробная часть");
+    expect(shown()).toMatch(/^45,\s*₴$/u);
+    await press("4");
+    expect(shown()).toMatch(/^45,4\s*₴$/u);
+    await press("0");
+    expect(shown()).toMatch(/^45,40\s*₴$/u);
+  });
+
+  it("starts a whole new number after =, not just its last digit", async () => {
+    open();
+    await userEvent.click(await screen.findByLabelText("Сумма"));
+
+    await press("1", "2", "0", "Плюс", "3", "0", "Равно");
+    await press("5", "3");
+    expect(shown()).toMatch(/^53\s*₴$/u);
+  });
+});

@@ -10,11 +10,12 @@ import { useAccounts, useCategories, useMembers, useTransactions } from "~/db/qu
 import {
   EMPTY_EXPRESSION,
   evaluate,
+  formatExpression,
   fromMinor,
-  expressionTerms,
   pressBackspace,
   pressDecimal,
   pressDigit,
+  pressEquals,
   pressOperator,
   type Expression,
   type Operator,
@@ -22,7 +23,7 @@ import {
 import { nextOccurrence } from "~/lib/recurring";
 import { Button } from "~/ui/Button";
 import { rateFor } from "~/lib/fx";
-import { addDaysIso, formatAmount, formatDateShort, formatMoney, todayIso } from "~/lib/format";
+import { addDaysIso, formatDateShort, formatMoney, todayIso } from "~/lib/format";
 import { findLikelyDuplicate, resolveAccountId } from "~/lib/predict";
 import { Amount, Chip, Sheet, chipClasses, type ToastSpec } from "~/ui";
 import { cn } from "~/lib/cn";
@@ -48,16 +49,6 @@ import { SplitSheet } from "./SplitSheet";
 
 /* Seven, not six: the grid is four columns and the "All" button occupies a cell, so six left a
    single empty slot in the second row. Seven fills both rows exactly. */
-
-/** Typographic operators, not the ASCII the keypad sends. */
-/** "45 ₴" -> "45, ₴", "$45" -> "$45," — after the digits, wherever the symbol sits. */
-function withPendingSeparator(formatted: string, separator: string): string {
-  const lastDigit = formatted.search(/\d(?!.*\d)/);
-  if (lastDigit === -1) return formatted + separator;
-  return formatted.slice(0, lastDigit + 1) + separator + formatted.slice(lastDigit + 1);
-}
-
-const OPERATOR_GLYPHS: Record<Operator, string> = { "+": "+", "-": "−", "*": "×", "/": "÷" };
 
 export function EntrySheet({
   editing,
@@ -204,13 +195,23 @@ export function EntrySheet({
   const manualRate =
     typedRate !== null && Number.isFinite(typedRate) && typedRate > 0 ? typedRate : null;
   const amountMinor = evaluate(expression, currency);
-  /** "," for ru/uk, "." for en — must match what the keypad key prints. */
-  const decimalSeparator =
-    new Intl.NumberFormat(locale).formatToParts(1.1).find((part) => part.type === "decimal")
-      ?.value ?? ".";
   /** What this costs the household, at whatever rate is in force — source or corrected. */
   const convertedMinor = Math.round(amountMinor * (manualRate ?? resolvedRate?.rate ?? 1));
-  const terms = expressionTerms(expression, currency);
+  /** The amount line: the expression as typed, or the figure once there is only a figure. */
+  const amountText = formatExpression(expression, currency, locale);
+  /*
+   * The figure shrinks rather than clipping, the way a calculator's does. A receipt of three or
+   * four terms is longer than any single amount, and losing the end of it — which is the part
+   * being typed — would be worse than losing a few points of type size.
+   */
+  const amountSize =
+    amountText.length <= 12
+      ? "text-[32px]"
+      : amountText.length <= 18
+        ? "text-[26px]"
+        : amountText.length <= 26
+          ? "text-[20px]"
+          : "text-[17px]";
   const toAmountMinor = evaluate(toExpression, (toAccount?.currency as Currency) ?? currency);
 
   /*
@@ -309,20 +310,28 @@ export function EntrySheet({
       // Both separators, whichever the keyboard produces and whichever the locale expects.
       if (event.key === "." || event.key === ",") {
         event.preventDefault();
-        setExpression(pressDecimal);
+        setExpression((current) => pressDecimal(current, currency));
         return;
       }
 
-      if (event.key === "+" || event.key === "-" || event.key === "*") {
+      if (event.key === "+" || event.key === "-" || event.key === "*" || event.key === "/") {
         event.preventDefault();
         const operator = event.key satisfies Operator;
-        setExpression((current) => pressOperator(current, operator, currency));
+        setExpression((current) => pressOperator(current, operator));
+        return;
+      }
+
+      // The display shows the working until this key, so a hardware keyboard needs it as much as
+      // the pad does. Enter is not it: Enter saves.
+      if (event.key === "=") {
+        event.preventDefault();
+        setExpression((current) => pressEquals(current, currency));
         return;
       }
 
       if (event.key === "Backspace") {
         event.preventDefault();
-        setExpression((current) => pressBackspace(current, currency));
+        setExpression(pressBackspace);
         return;
       }
 
@@ -776,7 +785,8 @@ export function EntrySheet({
           <button
             type="button"
             className={cn(
-              "flex min-h-14 w-full items-baseline justify-start gap-2 rounded-lg border px-3 py-2.5",
+              // Centred, not baseline-aligned: the figure changes type size as the expression grows.
+              "flex min-h-14 w-full items-center justify-start gap-2 rounded-lg border px-3 py-2.5",
               keypadOpen ? "border-primary bg-secondary" : "border-border bg-card",
             )}
             onClick={() => {
@@ -786,49 +796,26 @@ export function EntrySheet({
             aria-expanded={keypadOpen}
             aria-label={t("entry.amount")}
           >
-            {/* The working, above the answer, the way a calculator shows it. A bare operator glyph
-                next to a running total told you an operation was pending but not what of. */}
-            {terms.operator && (
-              <span
-                className="mb-0.5 block min-h-[18px] text-xs tabular-nums text-muted-foreground"
-                aria-live="polite"
-              >
-                {formatAmount(terms.left ?? 0, currency, locale)}
-                {" "}
-                {OPERATOR_GLYPHS[terms.operator]}
-                {terms.right === null ? "" : ` ${formatAmount(terms.right, currency, locale)}`}
-              </span>
-            )}
             {/*
-              A trailing decimal point is real input with nothing yet to show for it: "45," parses
-              to the same minor units as "45", so the formatted figure swallowed the comma and the
-              key looked dead until a fraction digit arrived. When one is pending, the separator is
-              spliced in directly after the last digit — after the digits and before the currency
-              symbol, wherever the locale puts that symbol.
+              One line, showing exactly what was keyed: `120 + 45,5` while an expression is open,
+              the result once `=` closes it. Two things were wrong with showing the running total
+              here instead. The number in the biggest type on screen was one nobody had typed —
+              `120 + 45` drew as 165 — and, because it was a *number*, anything typed that did not
+              change it was invisible: `45`, `45,` and `45,0` were all `45`, so the decimal key
+              looked broken until a second fraction digit arrived.
             */}
-            {expression.current.endsWith(".") ? (
-              <span
-                className={cn(
-                  "block whitespace-nowrap text-[32px] font-bold tabular-nums tracking-tight",
-                  kind === "expense" && "text-expense",
-                  kind === "income" && "text-income",
-                  kind === "transfer" && "text-transfer",
-                )}
-              >
-                {withPendingSeparator(
-                  formatMoney(amountMinor, currency, locale),
-                  decimalSeparator,
-                )}
-              </span>
-            ) : (
-              <Amount
-                minor={amountMinor}
-                currency={currency}
-                tone={kind}
-                size="display"
-                cents={amountMinor % 100 !== 0}
-              />
-            )}
+            <span
+              className={cn(
+                "sensitive block min-w-0 flex-1 truncate text-left font-bold tabular-nums tracking-tight",
+                amountSize,
+                kind === "expense" && "text-expense",
+                kind === "income" && "text-income",
+                kind === "transfer" && "text-transfer",
+              )}
+              aria-live="polite"
+            >
+              {amountText}
+            </span>
           </button>
 
         </div>

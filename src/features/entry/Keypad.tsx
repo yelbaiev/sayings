@@ -1,6 +1,7 @@
 import type { Currency } from "@shared/currency";
 import { useApp } from "~/app/AppContext";
 import {
+  OPERATOR_GLYPHS,
   pressBackspace,
   pressDecimal,
   pressDigit,
@@ -8,6 +9,7 @@ import {
   pressOperator,
   type Expression,
 } from "~/lib/calc";
+import { decimalSeparator } from "~/lib/format";
 
 /**
  * The custom numeric pad.
@@ -40,14 +42,9 @@ export function Keypad({
 }) {
   const { t, locale } = useApp();
 
-  /*
-   * The locale's own decimal separator — "," for ru/uk, "." for en. Hardcoding either would
-   * print a character the user does not type on paper, and the amount display above the pad is
-   * already formatted with Intl, so the two would visibly disagree.
-   */
-  const decimal =
-    new Intl.NumberFormat(locale).formatToParts(1.1).find((part) => part.type === "decimal")
-      ?.value ?? ".";
+  /* The locale's own separator, from the same helper the amount display uses — the two sit one
+     above the other, so a disagreement would be visible. */
+  const decimal = decimalSeparator(locale);
 
   const key = (
     label: string,
@@ -68,8 +65,8 @@ export function Keypad({
   const digit = (value: string) =>
     key(value, () => onChange(pressDigit(expression, value, currency)));
 
-  const operator = (label: string, op: "+" | "-" | "*", ariaLabel: string) =>
-    key(label, () => onChange(pressOperator(expression, op, currency)), {
+  const operator = (op: "+" | "-" | "*", ariaLabel: string) =>
+    key(OPERATOR_GLYPHS[op], () => onChange(pressOperator(expression, op)), {
       ariaLabel,
       className: "keypad__key--op",
     });
@@ -78,7 +75,7 @@ export function Keypad({
     <div className="keypad">
       {/* Column order matters to the grid's auto-flow: each row is operator, three digits, and on
           the first row the equals key, which spans the rest. */}
-      {operator("+", "+", t("entry.add"))}
+      {operator("+", t("entry.add"))}
       {digit("1")}
       {digit("2")}
       {digit("3")}
@@ -91,23 +88,25 @@ export function Keypad({
         =
       </button>
 
-      {operator("−", "-", t("entry.subtract"))}
+      {operator("-", t("entry.subtract"))}
       {digit("4")}
       {digit("5")}
       {digit("6")}
 
-      {operator("×", "*", t("entry.multiply"))}
+      {operator("*", t("entry.multiply"))}
       {digit("7")}
       {digit("8")}
       {digit("9")}
 
-      {key("÷", () => onChange(pressOperator(expression, "/", currency)), {
+      {key(OPERATOR_GLYPHS["/"], () => onChange(pressOperator(expression, "/")), {
         ariaLabel: t("entry.divide"),
         className: "keypad__key--op",
       })}
-      {key(decimal, () => onChange(pressDecimal(expression)), { ariaLabel: t("entry.decimal") })}
+      {key(decimal, () => onChange(pressDecimal(expression, currency)), {
+        ariaLabel: t("entry.decimal"),
+      })}
       {digit("0")}
-      {key("⌫", () => onChange(pressBackspace(expression, currency)), {
+      {key("⌫", () => onChange(pressBackspace(expression)), {
         ariaLabel: t("common.back"),
       })}
     </div>

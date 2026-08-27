@@ -2,14 +2,18 @@ import { describe, expect, it } from "vitest";
 import {
   addDaysIso,
   addMonths,
+  currencyAffix,
   daysBetween,
+  decimalSeparator,
   formatAmount,
+  formatTypedNumber,
   formatBytes,
   formatDayHeading,
   formatMoney,
   formatRelativeTime,
   monthOf,
   todayIso,
+  withCurrency,
 } from "~/lib/format";
 
 /** Normalises the various Unicode spaces Intl uses as group separators, so assertions can be
@@ -66,6 +70,56 @@ describe("formatAmount", () => {
     const formatted = norm(formatAmount(51_281_900, "UAH", "en"));
     expect(formatted).toBe("512,819");
     expect(formatted).not.toContain("₴");
+  });
+});
+
+describe("formatTypedNumber", () => {
+  it("echoes what was typed rather than what it parses to", () => {
+    /*
+     * The reason it exists. `formatMoney` renders a *value*, and "45", "45." and "45.0" are one
+     * value — so the keypad's decimal key drew nothing until a second fraction digit arrived.
+     */
+    expect(formatTypedNumber("45", "ru")).toBe("45");
+    expect(formatTypedNumber("45.", "ru")).toBe("45,");
+    expect(formatTypedNumber("45.0", "ru")).toBe("45,0");
+    expect(formatTypedNumber("45.04", "ru")).toBe("45,04");
+  });
+
+  it("groups the integer part the way the locale does", () => {
+    expect(norm(formatTypedNumber("1240.50", "ru"))).toBe("1 240,50");
+    expect(formatTypedNumber("1240.50", "en")).toBe("1,240.50");
+  });
+
+  it("handles the states a keypad can be in", () => {
+    expect(formatTypedNumber("", "ru")).toBe("");
+    expect(formatTypedNumber(".", "ru")).toBe("0,");
+    expect(formatTypedNumber("0", "ru")).toBe("0");
+    expect(formatTypedNumber("-70.5", "ru")).toBe("−70,5");
+  });
+});
+
+describe("decimalSeparator", () => {
+  it("is the locale's own", () => {
+    expect(decimalSeparator("ru")).toBe(",");
+    expect(decimalSeparator("uk")).toBe(",");
+    expect(decimalSeparator("en")).toBe(".");
+  });
+});
+
+describe("withCurrency", () => {
+  it("puts the symbol on the side the locale puts it", () => {
+    expect(withCurrency("1,240", "USD", "en")).toBe("$1,240");
+    expect(norm(withCurrency("1 240", "UAH", "ru"))).toBe("1 240 ₴");
+  });
+
+  it("keeps a minus outside the symbol, as formatMoney does", () => {
+    expect(withCurrency("−70", "USD", "en")).toBe("−$70");
+    expect(norm(formatMoney(-7000, "USD", "en", { cents: false }))).toBe("−$70");
+  });
+
+  it("reports the placement it used", () => {
+    expect(currencyAffix("USD", "en").prefix).toBe(true);
+    expect(currencyAffix("UAH", "ru").prefix).toBe(false);
   });
 });
 

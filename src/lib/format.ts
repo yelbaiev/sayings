@@ -60,6 +60,87 @@ export function formatMoney(
   return body;
 }
 
+/**
+ * The locale's own decimal separator — "," for ru/uk, "." for en.
+ *
+ * Hardcoding either would print a character the user does not type on paper, and it has to match
+ * what the keypad's own key prints, so both read it from here.
+ */
+export function decimalSeparator(locale: Locale): string {
+  return (
+    new Intl.NumberFormat(locale).formatToParts(1.1).find((part) => part.type === "decimal")
+      ?.value ?? "."
+  );
+}
+
+/**
+ * Formats a *typed* digit string — "45", "45.", "45.0", "1240.50" — for display.
+ *
+ * The difference from `formatMoney` is the whole point: this echoes the keys rather than the
+ * value. `45.` keeps its separator, `45.0` keeps its zero, and neither is normalised into the
+ * other, so every keypress visibly moves the display. Rendering the parsed number instead meant
+ * "45", "45," and "45,0" all drew as 45, and the decimal key looked dead.
+ *
+ * Grouping and the separator still come from `Intl`, so the digits read the way the locale writes
+ * them. An empty string comes back empty — the caller decides whether that shows as "0".
+ */
+export function formatTypedNumber(text: string, locale: Locale): string {
+  if (text === "") return "";
+
+  const negative = text.startsWith("-");
+  const body = negative ? text.slice(1) : text;
+  const point = body.indexOf(".");
+  const integerText = point === -1 ? body : body.slice(0, point);
+  const fraction = point === -1 ? null : body.slice(point + 1);
+
+  // Only the integer part goes through Intl: the fraction is shown exactly as typed, and asking
+  // for fraction digits would round it or pad it back to a length nobody keyed.
+  const integer = new Intl.NumberFormat(locale, { maximumFractionDigits: 0 }).format(
+    Number(integerText || "0"),
+  );
+
+  const formatted = fraction === null ? integer : integer + decimalSeparator(locale) + fraction;
+  return negative ? `−${formatted}` : formatted;
+}
+
+/**
+ * The currency symbol and where the locale puts it: `$` before in `en`, `₴` after in `uk`.
+ *
+ * Read from `Intl` rather than from a table, so it agrees with `formatMoney` down to the space
+ * between symbol and digits. It exists for the one case that cannot go through `formatMoney` at
+ * all — a part-typed amount, which is text and not a number.
+ */
+export interface CurrencyAffix {
+  symbol: string;
+  /** True when the symbol leads the digits. */
+  prefix: boolean;
+  /** Whatever the locale puts between symbol and digits: a space, a no-break space, or nothing. */
+  spacing: string;
+}
+
+export function currencyAffix(currency: Currency, locale: Locale): CurrencyAffix {
+  const parts = currencyFormatter(locale, currency, false).formatToParts(1);
+  const index = parts.findIndex((part) => part.type === "currency");
+  if (index === -1) return { symbol: currency, prefix: false, spacing: " " };
+
+  const prefix = index === 0;
+  const neighbour = parts[prefix ? index + 1 : index - 1];
+  return {
+    symbol: parts[index]!.value,
+    prefix,
+    spacing: neighbour?.type === "literal" ? neighbour.value : "",
+  };
+}
+
+/** Puts the currency symbol on an already-formatted figure, keeping any minus sign outermost. */
+export function withCurrency(formatted: string, currency: Currency, locale: Locale): string {
+  const { symbol, prefix, spacing } = currencyAffix(currency, locale);
+  const negative = formatted.startsWith("−");
+  const body = negative ? formatted.slice(1) : formatted;
+  const withSymbol = prefix ? `${symbol}${spacing}${body}` : `${body}${spacing}${symbol}`;
+  return negative ? `−${withSymbol}` : withSymbol;
+}
+
 /** Bare number, no currency symbol — for table cells where the column header carries it. */
 export function formatAmount(
   amountMinor: Minor,
