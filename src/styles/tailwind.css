@@ -272,6 +272,37 @@
     color: var(--muted-foreground);
   }
 
+  /*
+   * Selects wear the app's own field, not the operating system's.
+   *
+   * Sharing the border, radius and height with `input` was never enough: the browser still drew
+   * its own control on top, so on macOS every dropdown carried a pair of tiny stepper chevrons in
+   * a font nothing else here uses, and sat differently from the text field directly above it. Four
+   * browsers, four appearances, none of them this app's.
+   *
+   * `appearance: none` takes the drawing back, and the chevron below replaces it. The *list* that
+   * opens is still the browser's, deliberately: on a phone that is the native wheel, which beats
+   * anything worth building for a hundred categories, and on a desktop it is the one part of a
+   * select that already looks right.
+   */
+  select {
+    appearance: none;
+    /* Room for the chevron, which is painted into the padding rather than over the text. */
+    padding-right: 2.25rem;
+    background-repeat: no-repeat;
+    background-position: right 0.75rem center;
+    background-size: 0.7rem;
+    /* One mid grey rather than a per-theme pair: `--muted-foreground` sits at much the same
+       lightness in both themes, and a data URI cannot read a custom property. */
+    background-image: url("data:image/svg+xml;charset=utf-8,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16' fill='none' stroke='%2380808a' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M4 6l4 4 4-4'/%3E%3C/svg%3E");
+    cursor: pointer;
+  }
+
+  select:disabled {
+    cursor: default;
+    opacity: 0.5;
+  }
+
   :focus-visible {
     outline: 2px solid var(--ring);
     outline-offset: 2px;

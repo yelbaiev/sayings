@@ -25,9 +25,9 @@ import { AmountField } from "./AmountField";
 import { nextOccurrence } from "~/lib/recurring";
 import { Button } from "~/ui/Button";
 import { rateFor } from "~/lib/fx";
-import { addDaysIso, formatDateShort, formatMoney, todayIso } from "~/lib/format";
+import { addDaysIso, formatMoney, todayIso } from "~/lib/format";
 import { findLikelyDuplicate, resolveAccountId } from "~/lib/predict";
-import { Amount, Chip, Sheet, chipClasses, type ToastSpec } from "~/ui";
+import { Amount, Chip, Sheet, type ToastSpec } from "~/ui";
 import { cn } from "~/lib/cn";
 import { HoldButton } from "~/ui/HoldButton";
 import { CARD } from "~/ui/recipes";
@@ -35,6 +35,7 @@ import { Keypad } from "./Keypad";
 import { EntryRow } from "./EntryRow";
 import { AccountSheet, CategorySheet } from "./PickerSheets";
 import { RateField, formatRate } from "./RateField";
+import { DateChip } from "./DateChip";
 import { ReceiptField } from "./ReceiptField";
 import { SplitSheet } from "./SplitSheet";
 
@@ -479,7 +480,6 @@ export function EntrySheet({
 
   const today = todayIso();
   const yesterday = addDaysIso(today, -1);
-  const customDate = occurredOn !== today && occurredOn !== yesterday;
 
   /**
    * The date, as three chips on one line.
@@ -496,21 +496,13 @@ export function EntrySheet({
       <Chip active={occurredOn === yesterday} onClick={() => setOccurredOn(yesterday)}>
         {t("entry.yesterday")}
       </Chip>
-      {/* Hand-rolled rather than <Chip>, because it has to be a <label> wrapping the hidden date
-          input. That is why it was once missing the selected state the other two got for free: a
-          picked date showed as "31 июля" but never lit up, so the sheet looked as though nothing
-          had been chosen while it was in fact about to save under that date. */}
-      <label className={cn(chipClasses(customDate), "relative")}>
-        {customDate ? formatDateShort(occurredOn, locale) : t("entry.pickDate")}
-        <input
-          type="date"
-          value={occurredOn}
-          max={today}
-          onChange={(event) => event.target.value && setOccurredOn(event.target.value)}
-          style={{ position: "absolute", inset: 0, opacity: 0, width: "100%", padding: 0 }}
-          aria-label={t("entry.pickDate")}
-        />
-      </label>
+      {/* The native input on a phone, a calendar of our own on a desktop — see DateChip. */}
+      <DateChip
+        value={occurredOn}
+        max={today}
+        onChange={setOccurredOn}
+        pickLabel={t("entry.pickDate")}
+      />
     </div>
   );
 

@@ -195,7 +195,7 @@ export function Segmented<T extends string>({
 /* ------------------------------------------------------------------------------- sheet */
 
 /** A live media query — read once would miss a tablet rotating across the breakpoint. */
-function useMediaQuery(query: string): boolean {
+export function useMediaQuery(query: string): boolean {
   const [matches, setMatches] = useState(
     () => typeof matchMedia === "function" && matchMedia(query).matches,
   );

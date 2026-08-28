@@ -246,6 +246,23 @@
   }
 }
 
+/* -------------------------------------------------------------------------- date chip */
+
+/*
+ * The native date input on a touch screen, laid invisibly over its chip.
+ *
+ * Invisible but not `display: none`: it is the tap target, and it has to cover the label exactly
+ * or the chip stops opening the picker along part of its width. Fixed values, so a class rather
+ * than an inline style.
+ */
+.date-native {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  padding: 0;
+  opacity: 0;
+}
+
 /* ------------------------------------------------------------------------------ charts */
 
 /*

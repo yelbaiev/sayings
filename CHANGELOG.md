@@ -1,5 +1,17 @@
 # Changelog
 
+## Version 1.3.0
+
+- Added: a calendar of the app's own for picking a date on a desktop. The hidden native input gave
+  whatever the browser felt like — a light popup over a dark app, a different layout per browser,
+  and in Safari often nothing at all, because the picker hangs off the icon we had hidden. A phone
+  keeps the native wheel, which is better than anything worth building
+- Changed: dropdowns wear the app's field instead of the operating system's. Sharing a border and a
+  height was never enough while the browser still drew its own control on top, complete with macOS
+  stepper chevrons in a font nothing else here uses
+- Added: the calendar walks with the arrow keys, refuses days in the future, and names each day by
+  its full date rather than the number on its face
+
 ## Version 1.2.2
 
 - Removed: the last 11 unused interface strings, describing an onboarding wizard and an import
