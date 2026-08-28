@@ -55,6 +55,9 @@ vi.mock("~/db/queries", () => ({
   useLookups: () => ({ accounts: new Map(), categories: new Map(), members: new Map() }),
   useTransactionCount: () => 0,
   useBalances: () => [],
+  // Mirrors the real hook's contract: a figure while a card is chosen, null otherwise.
+  useAccountBalance: (id?: string) =>
+    id ? { account: account(id, id === "acc_privat" ? "Приват" : "Моно"), native: 1_234_500, base: 1_234_500 } : null,
   useAccount: () => undefined,
 }));
 
@@ -133,5 +136,29 @@ describe("the Shell FAB and the account being viewed", () => {
     // Scoped to the sheet: the page's own filter select also lists the account names.
     const sheet = within(await screen.findByRole("dialog"));
     expect(await sheet.findByText("Моно")).toBeTruthy();
+  });
+
+  it("shows the chosen card's balance beside its name, and drops it when the filter clears", () => {
+    /*
+     * Filtering history to one card is how "what is on this card" gets asked. Without the figure
+     * here the answer lives on another screen, and the list below only says where it went.
+     */
+    window.history.replaceState({}, "", "/history?account=acc_privat");
+    renderInApp(
+      <RouterProvider>
+        <Shell>
+          <HistoryPage />
+        </Shell>
+      </RouterProvider>,
+    );
+
+    const balance = document.querySelector("[data-slot=account-balance]");
+    expect(balance).toBeTruthy();
+    expect(balance!.textContent).toContain("Приват");
+    expect(balance!.textContent).toMatch(/12\s*345,00/u);
+
+    // Unfiltered, there is no one card to report on.
+    fireEvent.click(screen.getByRole("button", { name: "История" }));
+    expect(document.querySelector("[data-slot=account-balance]")).toBeNull();
   });
 });

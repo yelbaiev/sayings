@@ -1,3 +1,4 @@
+import type { Currency } from "@shared/currency";
 import { signedMinor } from "@shared/money";
 import type { Transaction } from "@shared/schema";
 import { useWindowVirtualizer } from "@tanstack/react-virtual";
@@ -5,14 +6,21 @@ import { useLayoutEffect, useMemo, useRef, useState } from "react";
 import { useApp } from "~/app/AppContext";
 import { cn } from "~/lib/cn";
 import { Button } from "~/ui/Button";
-import { CARD, LIST, PAGE, PAGE_TITLE } from "~/ui/recipes";
+import { CARD, LIST, PAGE, PAGE_TITLE, ROW_SUB, ROW_TITLE } from "~/ui/recipes";
 import { useRouter } from "~/app/router";
 import { useHideOnScrollDown } from "~/lib/useScrollDirection";
 import { newId, put, remove, restore } from "~/db/mutations";
-import { useAccounts, useCategories, useLookups, useMembers, useTransactions } from "~/db/queries";
+import {
+  useAccountBalance,
+  useAccounts,
+  useCategories,
+  useLookups,
+  useMembers,
+  useTransactions,
+} from "~/db/queries";
 import { EntrySheet } from "~/features/entry/EntrySheet";
 import { formatDayHeading, todayIso } from "~/lib/format";
-import { Amount, Chip, EmptyState, SwipeRow, Toast, type ToastSpec } from "~/ui";
+import { Amount, Chip, EmptyState, IconChip, SwipeRow, Toast, type ToastSpec } from "~/ui";
 import { TransactionRow } from "./TransactionRow";
 
 /**
@@ -72,6 +80,8 @@ export function HistoryPage() {
   });
 
   const hasFilters = Boolean(search || accountId || categoryId || memberId);
+  /* What the chosen card holds right now. Null unless one is chosen — see useAccountBalance. */
+  const selected = useAccountBalance(accountId);
 
   // Imported rows live on accounts excluded from totals, which is what marks them as synthetic.
   const importedAccountIds = useMemo(
@@ -258,6 +268,31 @@ export function HistoryPage() {
       </div>
 
       </div>
+
+      {/*
+        The chosen card, with what it holds. Filtering history to one account is how the app is
+        used to answer "what is on this card" — the list below answers where the money went, and
+        without this the figure that prompted the question is on another screen.
+
+        Deliberately not a running balance down the rows: that is a different, much heavier claim
+        (every row needs the balance *after* it, in date order, including rows filtered out of
+        view) and it is not what was asked for.
+      */}
+      {selected && (
+        <div data-slot="account-balance" className={cn(CARD, "mb-2 flex items-center gap-2.5")}>
+          <IconChip icon={selected.account.icon} color={selected.account.color} />
+          <span className="min-w-0 flex-1">
+            <span className={ROW_TITLE}>{selected.account.name}</span>
+            <span className={ROW_SUB}>{t("accounts.balance")}</span>
+          </span>
+          <Amount
+            minor={selected.native}
+            currency={selected.account.currency as Currency}
+            tone={selected.native < 0 ? "expense" : "neutral"}
+            cents
+          />
+        </div>
+      )}
 
       <div className="mb-2 text-xs text-muted-foreground">
         <span>{t("history.count", { count: visible.length })}</span>

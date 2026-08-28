@@ -1,5 +1,10 @@
 # Changelog
 
+## Version 1.0.4
+
+- Added: filtering history to one account now shows that card's current balance beside its name.
+  The figure is the card's real balance, not the total of the rows in view
+
 ## Version 1.0.3
 
 - Changed: tapping the amount clears the placeholder `0` and waits, so the first digit typed is

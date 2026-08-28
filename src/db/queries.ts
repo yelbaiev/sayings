@@ -208,6 +208,39 @@ export function computeBalances(
   });
 }
 
+/**
+ * One account's current balance, or null when nothing is selected.
+ *
+ * Separate from `useBalances` because the caller — the history filter — needs a single figure and
+ * only while a card is chosen. Summing every transaction in the household to get it would put a
+ * full-table scan behind a dropdown on the one page that already reads 35k rows. Both legs of a
+ * transfer are indexed, so this touches only the rows that name this account.
+ *
+ * The figure ignores the page's filters, deliberately: a balance is what the card holds now, not
+ * what the visible slice of history adds up to.
+ */
+export function useAccountBalance(accountId: string | undefined): AccountBalance | null {
+  const accounts = useAccounts(true);
+  const account = accountId ? accounts.find((a) => a.id === accountId) : undefined;
+
+  const rows =
+    useLiveQuery(async () => {
+      if (!accountId) return [];
+      // Two indexed reads rather than one scan. A transfer names the account on one side or the
+      // other, never both, so concatenating cannot double-count it.
+      const [out, incoming] = await Promise.all([
+        db.transactions.where("account_id").equals(accountId).toArray(),
+        db.transactions.where("to_account_id").equals(accountId).toArray(),
+      ]);
+      return alive([...out, ...incoming]);
+    }, [accountId]) ?? [];
+
+  if (!account) return null;
+  // One account in, one balance out: `computeBalances` skips every leg naming an account it was
+  // not given, which is exactly the arithmetic wanted here.
+  return computeBalances([account], rows)[0] ?? null;
+}
+
 export function useBalances(): AccountBalance[] {
   const accounts = useAccounts(true);
   const transactions = useTransactions();
