@@ -213,10 +213,6 @@ const ru: Dictionary = {
   "import.mapColumns": "Сопоставьте колонки",
   "import.preview": "Предпросмотр",
   "import.commit": "Импортировать {count}",
-  "import.mapAccounts": "Сопоставьте счета",
-  "import.mapCategories": "Сопоставьте категории",
-  "import.createNew": "Создать новую",
-  "import.skip": "Пропустить",
   "import.rowsReady": {
     one: "{count} строка готова",
     few: "{count} строки готовы",
@@ -369,13 +365,6 @@ const ru: Dictionary = {
   "common.optional": "необязательно",
   "common.error": "Что-то пошло не так",
 
-  "onboarding.welcome": "Добро пожаловать",
-  "onboarding.householdName": "Как назовём ваше домохозяйство?",
-  "onboarding.addAccounts": "Добавьте свои счета",
-  "onboarding.addAccountsHint": "Наличные, карты, накопления — с тем, что есть сейчас.",
-  "onboarding.categories": "Ваши категории",
-  "onboarding.categoriesHint": "Перенесены из экспорта Saldo. Любую можно изменить позже.",
-  "onboarding.finish": "Начать пользоваться SAYings",
 
   "date.today": "Сегодня",
   "date.yesterday": "Вчера",

@@ -216,10 +216,6 @@ const uk: Dictionary = {
   "import.mapColumns": "Зіставте колонки",
   "import.preview": "Перегляд",
   "import.commit": "Імпортувати {count}",
-  "import.mapAccounts": "Зіставте рахунки",
-  "import.mapCategories": "Зіставте категорії",
-  "import.createNew": "Створити нову",
-  "import.skip": "Пропустити",
   "import.rowsReady": {
     one: "{count} рядок готовий",
     few: "{count} рядки готові",
@@ -372,13 +368,6 @@ const uk: Dictionary = {
   "common.optional": "необов'язково",
   "common.error": "Щось пішло не так",
 
-  "onboarding.welcome": "Вітаємо",
-  "onboarding.householdName": "Як назвемо ваше домогосподарство?",
-  "onboarding.addAccounts": "Додайте свої рахунки",
-  "onboarding.addAccountsHint": "Готівка, картки, заощадження — з тим, що є зараз.",
-  "onboarding.categories": "Ваші категорії",
-  "onboarding.categoriesHint": "Перенесені з експорту Saldo. Будь-яку можна змінити пізніше.",
-  "onboarding.finish": "Почати користуватися SAYings",
 
   "date.today": "Сьогодні",
   "date.yesterday": "Вчора",

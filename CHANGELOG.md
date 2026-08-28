@@ -1,5 +1,11 @@
 # Changelog
 
+## Version 1.2.2
+
+- Removed: the last 11 unused interface strings, describing an onboarding wizard and an import
+  column-mapper that were specified and never built. Every string in all three languages is now
+  one the app actually shows
+
 ## Version 1.2.1
 
 - Added: a six-month sparkline in each category row. "+18%" is one comparison against one month;

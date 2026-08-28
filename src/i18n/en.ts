@@ -204,10 +204,6 @@ const en = {
   "import.mapColumns": "Match your columns",
   "import.preview": "Preview",
   "import.commit": "Import {count}",
-  "import.mapAccounts": "Match accounts",
-  "import.mapCategories": "Match categories",
-  "import.createNew": "Create new",
-  "import.skip": "Skip",
   "import.rowsReady": { one: "{count} row ready", other: "{count} rows ready" },
   "import.rowsSkipped": { one: "{count} row skipped", other: "{count} rows skipped" },
   "import.duplicatesFound": {
@@ -348,13 +344,6 @@ const en = {
   "common.optional": "optional",
   "common.error": "Something went wrong",
 
-  "onboarding.welcome": "Welcome",
-  "onboarding.householdName": "What should we call your household?",
-  "onboarding.addAccounts": "Add your accounts",
-  "onboarding.addAccountsHint": "Cash, cards, savings — with what's in them right now.",
-  "onboarding.categories": "Your categories",
-  "onboarding.categoriesHint": "Brought over from your Saldo export. Change any of them later.",
-  "onboarding.finish": "Start using SAYings",
 
   "date.today": "Today",
   "date.yesterday": "Yesterday",
