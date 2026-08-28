@@ -1,5 +1,19 @@
 # Changelog
 
+## Version 1.1.1
+
+- Added: an income-against-expense chart on the cashflow tab — a column above the line for what came
+  in each month and one below it for what went out, on a shared scale
+- Fixed: the net-worth chart never blurred in privacy mode. The figure above it did, so the screen
+  could be shown to someone with the number hidden and the shape of the household's savings drawn
+  in full
+- Fixed: the net-worth line was scaled from a floor of zero, which flattened it into a line along
+  the top of an empty box, and stretched non-uniformly, which thickened its stroke with the
+  container. It now scales to the data and keeps its own weight
+- Added: the latest figure is back above the net-worth line, and touching any month reads that
+  month out instead
+- Added: both charts have a table behind a toggle, so no value is reachable only by touching
+
 ## Version 1.1.0
 
 - Added: the keypad now serves every field that takes an amount — budget limits, opening balances,

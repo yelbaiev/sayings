@@ -187,6 +187,8 @@ const uk: Dictionary = {
   "reports.rangeAll": "Весь час",
   "reports.empty": "Немає даних за цей період.",
   "reports.copyTable": "Копіювати таблицю",
+  "reports.showTable": "Таблиця",
+  "reports.hideTable": "Графік",
   "reports.copied": "Скопійовано",
   "reports.drillDown": "{category} за {period}",
   "reports.share": "частка",

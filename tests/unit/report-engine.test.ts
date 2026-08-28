@@ -2,6 +2,7 @@ import type { Account, Category, Member, Transaction } from "@shared/schema";
 import { describe, expect, it } from "vitest";
 import {
   cashflowByAccount,
+  cashflowOverTime,
   categoryMatrix,
   matrixToTsv,
   monthOverview,
@@ -322,6 +323,78 @@ describe("cashflowByAccount", () => {
       "2026-08-31",
     );
     expect(flows.map((f) => f.account.id)).toEqual(["mono"]);
+  });
+});
+
+describe("cashflowOverTime", () => {
+  const periods = ["2026-01", "2026-02", "2026-03"];
+
+  it("splits each period into what came in and what went out", () => {
+    const points = cashflowOverTime(
+      [
+        tx({ occurred_on: "2026-01-10", kind: "income", amount_minor: 500_000 }),
+        tx({ occurred_on: "2026-01-20", amount_minor: 120_000 }),
+        tx({ occurred_on: "2026-01-25", amount_minor: 80_000 }),
+        tx({ occurred_on: "2026-03-01", amount_minor: 60_000 }),
+      ],
+      periods,
+      "month",
+    );
+
+    expect(points[0]).toEqual({
+      period: "2026-01",
+      income: 500_000,
+      expenses: 200_000,
+      net: 300_000,
+    });
+    // A month with nothing in it is a point at zero, not a gap: the chart draws a continuous
+    // series and a missing period would silently close it up.
+    expect(points[1]).toEqual({ period: "2026-02", income: 0, expenses: 0, net: 0 });
+    expect(points[2]!.net).toBe(-60_000);
+  });
+
+  it("returns expenses as a positive magnitude", () => {
+    // They are drawn below a baseline. A value already negative would have to be un-negated to
+    // draw it, which is one sign flip more than a chart should carry.
+    const [point] = cashflowOverTime(
+      [tx({ occurred_on: "2026-01-05", amount_minor: 25_000 })],
+      ["2026-01"],
+      "month",
+    );
+    expect(point!.expenses).toBe(25_000);
+    expect(point!.net).toBe(-25_000);
+  });
+
+  it("leaves transfers out entirely", () => {
+    // Money moving between the household's own accounts is neither earned nor spent, and counting
+    // it as either is the commonest way a cashflow chart overstates both sides at once.
+    const points = cashflowOverTime(
+      [
+        tx({
+          occurred_on: "2026-01-15",
+          kind: "transfer",
+          to_account_id: "privat",
+          amount_minor: 300_000,
+        }),
+      ],
+      ["2026-01"],
+      "month",
+    );
+    expect(points[0]).toEqual({ period: "2026-01", income: 0, expenses: 0, net: 0 });
+  });
+
+  it("adds several currencies in the base figure each row carries", () => {
+    // base_amount_minor, not amount_minor: a euro expense and a hryvnia one cannot be summed in
+    // either of their own currencies.
+    const points = cashflowOverTime(
+      [
+        tx({ occurred_on: "2026-02-02", amount_minor: 5_000, base_amount_minor: 220_000 }),
+        tx({ occurred_on: "2026-02-03", amount_minor: 10_000, base_amount_minor: 10_000 }),
+      ],
+      ["2026-02"],
+      "month",
+    );
+    expect(points[0]!.expenses).toBe(230_000);
   });
 });
 

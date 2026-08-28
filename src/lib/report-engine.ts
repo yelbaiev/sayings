@@ -288,6 +288,46 @@ export function categoryTrend(
   return periods.map((bucket) => ({ period: bucket, total: totals.get(bucket) ?? 0 }));
 }
 
+/**
+ * Income and expense per period, for the cashflow chart.
+ *
+ * The same arithmetic `monthOverview` does, over a series of periods rather than one: signed by
+ * kind so transfers fall out at zero, and in the household's base currency, which is the only unit
+ * several accounts in several currencies can be added in.
+ *
+ * Expenses come back positive. They are drawn below a baseline, and a value that is already
+ * negative would have to be un-negated to draw it — one sign flip too many for a chart.
+ */
+export interface CashflowPoint {
+  period: string;
+  income: Minor;
+  expenses: Minor;
+  net: Minor;
+}
+
+export function cashflowOverTime(
+  transactions: Transaction[],
+  periods: string[],
+  period: Period,
+): CashflowPoint[] {
+  const income = new Map<string, Minor>();
+  const expenses = new Map<string, Minor>();
+
+  for (const tx of transactions) {
+    const signed = signedMinor(tx.kind, tx.base_amount_minor);
+    if (signed === 0) continue; // transfer: household money moving, not earned or spent
+    const bucket = periodOf(tx.occurred_on, period);
+    const target = signed > 0 ? income : expenses;
+    target.set(bucket, (target.get(bucket) ?? 0) + Math.abs(signed));
+  }
+
+  return periods.map((bucket) => {
+    const inflow = income.get(bucket) ?? 0;
+    const outflow = expenses.get(bucket) ?? 0;
+    return { period: bucket, income: inflow, expenses: outflow, net: inflow - outflow };
+  });
+}
+
 /* -------------------------------------------------------------------------- cashflow */
 
 export interface CashflowRow {

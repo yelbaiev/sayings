@@ -3,8 +3,10 @@ import { useMemo, useState } from "react";
 import { useApp } from "~/app/AppContext";
 import { useAccounts, useCategories, useLookups, useMembers, useTransactions } from "~/db/queries";
 import { TransactionRow } from "~/features/transactions/TransactionRow";
+import { CashflowChart, TrendChart } from "./charts";
 import {
   cashflowByAccount,
+  cashflowOverTime,
   categoryMatrix,
   matrixToTsv,
   monthOverview,
@@ -17,7 +19,7 @@ import {
 import { addMonths, formatAmount, formatMonth, formatMonthShort, monthOf, todayIso } from "~/lib/format";
 import { cn } from "~/lib/cn";
 import { Button } from "~/ui/Button";
-import { CARD, LIST, PAGE_TITLE, ROW, ROW_SUB, ROW_TITLE, SECTION_TITLE } from "~/ui/recipes";
+import { CARD, LIST, PAGE_TITLE, ROW, ROW_SUB, ROW_TITLE } from "~/ui/recipes";
 import { Amount, Chip, EmptyState, IconChip, Segmented, Sheet } from "~/ui";
 
 type ReportTab = "matrix" | "month" | "netWorth" | "cashflow" | "byMember";
@@ -300,7 +302,17 @@ export function ReportsPage() {
       )}
 
       {tab === "cashflow" && (
-        <div className={LIST}>
+        <>
+          {/* The chart answers "are we spending more than we earn, and is it getting worse"; the
+              rows below answer "on which card". Different questions, one tab. */}
+          <div className="mb-3">
+            <CashflowChart
+              points={cashflowOverTime(transactions, periodRange(range.from, range.to, period), period)}
+              currency={baseCurrency}
+            />
+          </div>
+
+          <div className={LIST}>
           {cashflowByAccount(transactions, accounts, range.from, range.to).map((row) => (
             <div key={row.account.id} className={cn(ROW, "hover:bg-accent active:bg-accent")}>
               <IconChip icon={row.account.icon} color={row.account.color} />
@@ -319,7 +331,8 @@ export function ReportsPage() {
               />
             </div>
           ))}
-        </div>
+          </div>
+        </>
       )}
 
       {tab === "byMember" && (
@@ -371,54 +384,26 @@ function NetWorthReport({
   const { t, locale, baseCurrency } = useApp();
   const periods = periodRange(from, to, "month");
   const points = netWorthOverTime(transactions, accounts, periods, "month", baseCurrency);
-
-  // Simple inline sparkline rather than a charting library: one polyline is a few lines of
-  // SVG, where recharts would be ~100 kB for this.
-  const values = points.map((p) => p.total);
-  const min = Math.min(...values, 0);
-  const max = Math.max(...values, 0);
-  const span = max - min || 1;
-  const width = 320;
-  const height = 80;
-
-  const path = points
-    .map((point, index) => {
-      const x = points.length === 1 ? 0 : (index / (points.length - 1)) * width;
-      const y = height - ((point.total - min) / span) * height;
-      return `${index === 0 ? "M" : "L"}${x.toFixed(1)},${y.toFixed(1)}`;
-    })
-    .join(" ");
-
   const latest = points[points.length - 1];
 
   return (
     <>
-      <div className={CARD}>
-        <div className={SECTION_TITLE}>{t("reports.netWorth")}</div>
-        {latest && <Amount minor={latest.total} currency={baseCurrency} tone="neutral" size="hero" />}
-
-        <div className="mt-3 overflow-x-auto">
-          <svg
-            viewBox={`0 0 ${width} ${height}`}
-            width="100%"
-            height={height}
-            role="img"
-            aria-label={t("reports.netWorth")}
-            preserveAspectRatio="none"
-          >
-            <path d={path} fill="none" className="stroke-transfer" stroke="currentColor" strokeWidth={2} />
-          </svg>
-        </div>
-      </div>
+      <TrendChart
+        points={points.map((point) => ({ period: point.period, total: point.total }))}
+        currency={baseCurrency}
+        title={t("reports.netWorth")}
+      />
 
       {latest && latest.byCurrency.size > 1 && (
-        <div className={LIST} style={{ marginTop: 16 }}>
+        <div className={cn(LIST, "mt-4")}>
           {[...latest.byCurrency.entries()].map(([currency, amount]) => (
             <div key={currency} className={cn(ROW, "hover:bg-accent active:bg-accent")}>
               <span className="min-w-0 flex-1">
                 <span className={ROW_TITLE}>{currency}</span>
               </span>
-              <span className="tabular-nums">{formatAmount(amount, currency as never, locale, true)}</span>
+              <span className="sensitive tabular-nums">
+                {formatAmount(amount, currency as never, locale, true)}
+              </span>
             </div>
           ))}
         </div>

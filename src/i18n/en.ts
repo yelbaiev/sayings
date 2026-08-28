@@ -177,6 +177,8 @@ const en = {
   "reports.rangeAll": "All",
   "reports.empty": "No data for this period.",
   "reports.copyTable": "Copy table",
+  "reports.showTable": "Table",
+  "reports.hideTable": "Chart",
   "reports.copied": "Copied",
   "reports.drillDown": "{category} in {period}",
   "reports.share": "share",

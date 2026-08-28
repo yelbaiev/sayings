@@ -184,6 +184,8 @@ const ru: Dictionary = {
   "reports.rangeAll": "Всё время",
   "reports.empty": "Нет данных за этот период.",
   "reports.copyTable": "Копировать таблицу",
+  "reports.showTable": "Таблица",
+  "reports.hideTable": "График",
   "reports.copied": "Скопировано",
   "reports.drillDown": "{category} за {period}",
   "reports.share": "доля",
