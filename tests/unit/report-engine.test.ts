@@ -4,6 +4,7 @@ import {
   cashflowByAccount,
   cashflowOverTime,
   categoryMatrix,
+  categoryTrends,
   matrixToTsv,
   monthOverview,
   netWorthOverTime,
@@ -258,6 +259,67 @@ describe("monthOverview", () => {
     const overview = monthOverview(withTransfer, CATEGORIES, "2026-08");
     expect(overview.expenses).toBe(400_000);
     expect(overview.income).toBe(900_000);
+  });
+});
+
+describe("categoryTrends", () => {
+  const periods = ["2026-06", "2026-07", "2026-08"];
+
+  it("fills a series per category, aligned to the periods asked for", () => {
+    const trends = categoryTrends(
+      [
+        tx({ occurred_on: "2026-06-10", category_id: "cat_groceries", amount_minor: 10_000 }),
+        tx({ occurred_on: "2026-08-01", category_id: "cat_groceries", amount_minor: 30_000 }),
+        tx({ occurred_on: "2026-07-01", category_id: "cat_travel", amount_minor: 90_000 }),
+      ],
+      periods,
+      "month",
+    );
+
+    // A month with nothing in it is a zero in place, not a gap — a sparkline drawn from a shorter
+    // series would show the wrong shape rather than a shorter one.
+    expect(trends.get("cat_groceries")).toEqual([10_000, 0, 30_000]);
+    expect(trends.get("cat_travel")).toEqual([0, 90_000, 0]);
+  });
+
+  it("adds up several transactions in one month", () => {
+    const trends = categoryTrends(
+      [
+        tx({ occurred_on: "2026-07-02", category_id: "cat_groceries", amount_minor: 5_000 }),
+        tx({ occurred_on: "2026-07-20", category_id: "cat_groceries", amount_minor: 7_000 }),
+      ],
+      periods,
+      "month",
+    );
+    expect(trends.get("cat_groceries")).toEqual([0, 12_000, 0]);
+  });
+
+  it("leaves out what falls outside the window, and what has no category", () => {
+    const trends = categoryTrends(
+      [
+        tx({ occurred_on: "2025-01-01", category_id: "cat_groceries", amount_minor: 99_000 }),
+        tx({ occurred_on: "2026-07-01", category_id: null, amount_minor: 99_000 }),
+      ],
+      periods,
+      "month",
+    );
+    expect(trends.size).toBe(0);
+  });
+
+  it("adds several currencies through the figure each row carries", () => {
+    const trends = categoryTrends(
+      [
+        tx({
+          occurred_on: "2026-07-01",
+          category_id: "cat_travel",
+          amount_minor: 5_000,
+          base_amount_minor: 220_000,
+        }),
+      ],
+      periods,
+      "month",
+    );
+    expect(trends.get("cat_travel")).toEqual([0, 220_000, 0]);
   });
 });
 

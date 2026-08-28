@@ -185,6 +185,7 @@ const ru: Dictionary = {
   "reports.empty": "Нет данных за этот период.",
   "reports.copyTable": "Копировать таблицу",
   "reports.showTable": "Таблица",
+  "reports.trend": "Динамика за полгода",
   "reports.otherCategories": {
     one: "ещё {count}",
     few: "ещё {count}",
@@ -196,7 +197,6 @@ const ru: Dictionary = {
   "reports.copied": "Скопировано",
   "reports.drillDown": "{category} за {period}",
   "reports.share": "доля",
-  "reports.change": "изменение",
 
   "budgets.title": "Бюджеты",
   "budgets.add": "Задать бюджет",

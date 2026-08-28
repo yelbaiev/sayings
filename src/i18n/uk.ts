@@ -188,6 +188,7 @@ const uk: Dictionary = {
   "reports.empty": "Немає даних за цей період.",
   "reports.copyTable": "Копіювати таблицю",
   "reports.showTable": "Таблиця",
+  "reports.trend": "Динаміка за півроку",
   "reports.otherCategories": {
     one: "ще {count}",
     few: "ще {count}",
@@ -199,7 +200,6 @@ const uk: Dictionary = {
   "reports.copied": "Скопійовано",
   "reports.drillDown": "{category} за {period}",
   "reports.share": "частка",
-  "reports.change": "зміна",
 
   "budgets.title": "Бюджети",
   "budgets.add": "Задати бюджет",

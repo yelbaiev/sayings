@@ -43,9 +43,17 @@ export function Amount({
   size?: "display" | "hero";
 } & MoneyFormatOptions) {
   const { locale } = useApp();
+  /*
+   * Equal-width digits everywhere a column of amounts has to line up — list rows, table cells,
+   * the keypad — and *not* on a standalone figure at display size, where the padding inside a 1
+   * makes "121" read loose and slightly broken. The rule is about alignment, and a hero number has
+   * nothing to align with.
+   */
+  const aligned = size !== "hero" && size !== "display";
   const classes = cn(
     // `sensitive`: money is what privacy mode exists to hide, and every amount renders here.
-    "sensitive whitespace-nowrap font-semibold tabular-nums",
+    "sensitive whitespace-nowrap font-semibold",
+    aligned && "tabular-nums",
     tone === "expense" && "text-expense",
     tone === "income" && "text-income",
     tone === "transfer" && "text-transfer",

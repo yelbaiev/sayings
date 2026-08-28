@@ -322,24 +322,39 @@ export function netWorthOverTime(
 
 /* ---------------------------------------------------------------------------- trend */
 
-export interface TrendPoint {
-  period: string;
-  total: Minor;
-}
-
-export function categoryTrend(
+/**
+ * Every category's totals across the same periods, in one pass.
+ *
+ * Plural on purpose. The single-category version this replaces walked the whole ledger per
+ * category, which is fine for one call and quadratic for a list — fifteen categories against
+ * 35k rows is half a million comparisons on every render of a screen that already virtualises
+ * for exactly that reason. One pass fills them all.
+ *
+ * Values come back as a bare array per category, aligned to `periods` by index: a sparkline needs
+ * the shape, and the period labels are already on the axis of the chart it sits in.
+ */
+export function categoryTrends(
   transactions: Transaction[],
-  categoryId: string,
   periods: string[],
   period: Period,
-): TrendPoint[] {
-  const totals = new Map<string, Minor>();
+): Map<string, Minor[]> {
+  const index = new Map(periods.map((bucket, at) => [bucket, at]));
+  const trends = new Map<string, Minor[]>();
+
   for (const tx of transactions) {
-    if (tx.category_id !== categoryId) continue;
-    const bucket = periodOf(tx.occurred_on, period);
-    totals.set(bucket, (totals.get(bucket) ?? 0) + tx.base_amount_minor);
+    if (!tx.category_id) continue;
+    const at = index.get(periodOf(tx.occurred_on, period));
+    if (at === undefined) continue;
+
+    let series = trends.get(tx.category_id);
+    if (!series) {
+      series = new Array<Minor>(periods.length).fill(0);
+      trends.set(tx.category_id, series);
+    }
+    series[at] = (series[at] ?? 0) + tx.base_amount_minor;
   }
-  return periods.map((bucket) => ({ period: bucket, total: totals.get(bucket) ?? 0 }));
+
+  return trends;
 }
 
 /**

@@ -6,11 +6,12 @@ import { useApp } from "~/app/AppContext";
 import { useAccounts, useCategories, useLookups, useMembers, useTransactions } from "~/db/queries";
 import { useLatestRates } from "~/db/useRates";
 import { TransactionRow } from "~/features/transactions/TransactionRow";
-import { CashflowChart, DonutChart, PeriodStrip, TrendChart } from "./charts";
+import { CashflowChart, DonutChart, PeriodStrip, Sparkline, TrendChart } from "./charts";
 import {
   cashflowByAccount,
   cashflowOverTime,
   categoryMatrix,
+  categoryTrends,
   matrixToTsv,
   monthOverview,
   netWorthOverTime,
@@ -75,6 +76,13 @@ export function ReportsPage() {
     [transactions, categories, month],
   );
   const monthRows = overview.byCategory[monthKind];
+
+  /* Six months ending at the one being read, for the sparkline in each category row. One pass over
+     the ledger for every category at once — see categoryTrends. */
+  const trends = useMemo(() => {
+    const periods = Array.from({ length: 6 }, (_, index) => addMonths(month, index - 5));
+    return categoryTrends(transactions, periods, "month");
+  }, [transactions, month]);
 
   /* Nine months ending at the one being read, each sized by that side's total. */
   const monthBars = useMemo(() => {
@@ -342,12 +350,22 @@ export function ReportsPage() {
                 <IconChip icon={row.category.icon} color={row.category.color} />
                 <span className="min-w-0 flex-1">
                   <span className={ROW_TITLE}>{row.category.name}</span>
+                  {/* The word "change" went with the sparkline's arrival: a signed percentage
+                      beside a line that shows the direction does not also need naming, and the
+                      three of them together pushed the row into truncating. */}
                   <span className={ROW_SUB}>
                     {Math.round(row.share * 100)}% {t("reports.share")}
                     {row.changeRatio !== null &&
-                      ` · ${row.changeRatio > 0 ? "+" : ""}${Math.round(row.changeRatio * 100)}% ${t("reports.change")}`}
+                      ` · ${row.changeRatio > 0 ? "+" : ""}${Math.round(row.changeRatio * 100)}%`}
                   </span>
                 </span>
+                {/* Six months of shape beside the one month of figure. "+18%" is one comparison
+                    against one month; the line says whether it is a spike or a climb. */}
+                <Sparkline
+                  values={trends.get(row.category.id) ?? []}
+                  color={row.category.color ?? "var(--muted-foreground)"}
+                  label={t("reports.trend")}
+                />
                 <Amount minor={row.total} currency={baseCurrency} tone="neutral" />
               </button>
             ))}

@@ -886,3 +886,67 @@ export function PeriodStrip({
     </div>
   );
 }
+
+/**
+ * A category's last few months, at the size of a word.
+ *
+ * The row beside it already says "+18% on last month", which is one comparison against one month.
+ * A shape says whether that is a spike or the fourth month of a climb — the difference between
+ * "we ate out a lot in August" and "we have been eating out more since May", which are not the
+ * same fact and do not lead to the same decision.
+ *
+ * No axis, no labels, no marker. It is a word in the row's sentence, not a chart in its own right;
+ * the numbers behind it are one tap away in the drill-down.
+ */
+export function Sparkline({
+  values,
+  color,
+  label,
+}: {
+  values: Minor[];
+  color: string;
+  /** For assistive technology, which cannot read a shape. */
+  label: string;
+}) {
+  const width = 48;
+  const height = 18;
+  const pad = 2;
+
+  /*
+   * Fewer than three points is not a trend, and a category with one month of history would draw a
+   * flat stub that says nothing while looking like it says something.
+   */
+  if (values.length < 3 || values.every((value) => value === 0)) return null;
+
+  const max = Math.max(...values);
+  const min = Math.min(...values);
+  const span = max - min || 1;
+  const step = (width - pad * 2) / (values.length - 1);
+
+  const points = values.map((value, index) => ({
+    x: pad + index * step,
+    y: pad + (1 - (value - min) / span) * (height - pad * 2),
+  }));
+
+  return (
+    <svg
+      className="sensitive block shrink-0"
+      width={width}
+      height={height}
+      viewBox={`0 0 ${width} ${height}`}
+      role="img"
+      aria-label={label}
+    >
+      <path
+        d={smoothPath(points)}
+        fill="none"
+        stroke={color}
+        strokeWidth={1.5}
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      />
+      {/* The end, marked: which way it is going matters more than where it has been. */}
+      <circle cx={points[points.length - 1]!.x} cy={points[points.length - 1]!.y} r={2} fill={color} />
+    </svg>
+  );
+}

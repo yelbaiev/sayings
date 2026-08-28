@@ -1,6 +1,6 @@
 {
   "name": "sayings",
-  "version": "1.2.0",
+  "version": "1.2.1",
   "type": "module",
   "license": "MIT",
   "description": "SAYings — offline-first household finance and budgeting PWA you host on your own Cloudflare account",

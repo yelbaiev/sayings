@@ -814,6 +814,10 @@ export function EntrySheet({
               change it was invisible: `45`, `45,` and `45,0` were all `45`, so the decimal key
               looked broken until a second fraction digit arrived.
             */}
+            {/* Equal-width digits, unlike other figures this size. This one changes under the
+                finger — every keypress rewrites it — and proportional digits make it jitter
+                sideways as 1s and 8s trade places. Alignment here is against its own previous
+                frame. */}
             <span
               className={cn(
                 "sensitive block min-w-0 flex-1 truncate text-left font-bold tabular-nums tracking-tight",

@@ -2,7 +2,13 @@ import { fireEvent, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { describe, expect, it, vi } from "vitest";
 import { renderInApp } from "./harness";
-import { CashflowChart, DonutChart, PeriodStrip, TrendChart } from "~/features/reports/charts";
+import {
+  CashflowChart,
+  DonutChart,
+  PeriodStrip,
+  Sparkline,
+  TrendChart,
+} from "~/features/reports/charts";
 
 /**
  * The two charts, and specifically the three things that were wrong with the one they replace.
@@ -369,5 +375,39 @@ describe("the month strip", () => {
     );
     const fills = container.querySelectorAll("span[style]");
     expect(fills[0]!.getAttribute("style")).toContain("6%");
+  });
+});
+
+describe("the category sparkline", () => {
+  it("draws the shape of six months beside the one month of figure", () => {
+    const { container } = renderInApp(
+      <Sparkline values={[100, 120, 90, 200, 260, 300]} color="#3E63DD" label="Динамика" />,
+    );
+    const path = container.querySelector("path");
+    expect(path).toBeTruthy();
+    // Ends with a marker: which way it is going matters more than where it has been.
+    expect(container.querySelectorAll("circle")).toHaveLength(1);
+  });
+
+  it("says nothing where there is nothing to say", () => {
+    /*
+     * One or two months is not a trend, and an all-zero series is a category that was not used.
+     * Either would draw a flat stub that looks like a statement.
+     */
+    expect(
+      renderInApp(<Sparkline values={[100, 200]} color="#3E63DD" label="Динамика" />).container
+        .innerHTML,
+    ).toBe("");
+    expect(
+      renderInApp(<Sparkline values={[0, 0, 0, 0]} color="#3E63DD" label="Динамика" />).container
+        .innerHTML,
+    ).toBe("");
+  });
+
+  it("is hidden by privacy mode like every other figure", () => {
+    const { container } = renderInApp(
+      <Sparkline values={[100, 120, 90, 200]} color="#3E63DD" label="Динамика" />,
+    );
+    expect(container.querySelector("svg")?.classList.contains("sensitive")).toBe(true);
   });
 });

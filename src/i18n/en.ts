@@ -178,6 +178,7 @@ const en = {
   "reports.empty": "No data for this period.",
   "reports.copyTable": "Copy table",
   "reports.showTable": "Table",
+  "reports.trend": "Six-month trend",
   "reports.otherCategories": {
     one: "{count} more",
     other: "{count} more",
@@ -187,7 +188,6 @@ const en = {
   "reports.copied": "Copied",
   "reports.drillDown": "{category} in {period}",
   "reports.share": "share",
-  "reports.change": "change",
 
   "budgets.title": "Budgets",
   "budgets.add": "Set a budget",

@@ -1,5 +1,14 @@
 # Changelog
 
+## Version 1.2.1
+
+- Added: a six-month sparkline in each category row. "+18%" is one comparison against one month;
+  the line says whether that is a spike or the fourth month of a climb
+- Changed: large standalone figures no longer use equal-width digits, which made them read loose.
+  Lists, tables and the keypad keep them, because that is where numbers line up in a column
+- Changed: the category rows drop the word "change" beside the percentage — the line next to it
+  already says which way, and the three together pushed the row into truncating
+
 ## Version 1.2.0
 
 - Added: expenses by category and income by category, as two reports rather than one list. A donut
