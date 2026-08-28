@@ -528,8 +528,6 @@ export function SwipeRow({
            * deliver `pointercancel` in the middle of a swipe, which snapped the row shut.
            */
           touchAction: "pan-y",
-          // A mouse drag across a row would otherwise select its text and start a native drag.
-          userSelect: dragging ? "none" : undefined,
         }}
         onPointerDown={(event) => {
           // Secondary mouse buttons are not swipes.

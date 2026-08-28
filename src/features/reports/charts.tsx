@@ -330,19 +330,33 @@ export function CashflowChart({
       }
       readout={
         /*
-         * Always present, defaulting to the latest month. Rendering it only while a finger is down
-         * made the whole plot jump 16px the moment it was touched — the chart moving away from the
-         * point being aimed at.
+         * The month's figures, at the size of the thing they are.
+         *
+         * They were set in the same 12px muted grey as an axis label, which put the chart's whole
+         * answer — did this month end up or down — below the legend in reading order and below the
+         * period names in weight. The net leads, coloured by direction like every other amount in
+         * the app; what came in and what went out sit under it as its parts.
+         *
+         * Always present, defaulting to the latest month: rendering it only while a finger was down
+         * made the plot jump 16px away from the point being aimed at.
          */
         (() => {
           const point = shown ?? points[points.length - 1]!;
           return (
-            <div className="mt-0.5 text-xs text-muted-foreground" role="status" aria-live="polite">
-              {formatMonthShort(point.period, locale)} ·{" "}
-              <span className="sensitive">
-                +{formatAmount(point.income, currency, locale)} · −
-                {formatAmount(point.expenses, currency, locale)} ·{" "}
-                {formatMoney(point.net, currency, locale, { signed: true })}
+            <div role="status" aria-live="polite">
+              <Amount
+                minor={point.net}
+                currency={currency}
+                tone={point.net < 0 ? "expense" : "income"}
+                size="hero"
+                signed
+              />
+              <span className="block text-xs text-muted-foreground">
+                {formatMonthShort(point.period, locale)} ·{" "}
+                <span className="sensitive">
+                  +{formatAmount(point.income, currency, locale)} · −
+                  {formatAmount(point.expenses, currency, locale)}
+                </span>
               </span>
             </div>
           );

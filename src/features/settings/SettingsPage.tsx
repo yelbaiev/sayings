@@ -413,7 +413,11 @@ function VersionRow() {
   const version = info?.current ?? APP_VERSION;
 
   if (!info?.updateAvailable || !info.latest) {
-    return <p className="text-xs text-muted-foreground">{t("settings.version", { version })}</p>;
+    return (
+      <p className="selectable text-xs text-muted-foreground">
+        {t("settings.version", { version })}
+      </p>
+    );
   }
 
   return (
@@ -423,7 +427,7 @@ function VersionRow() {
           {t("settings.updateAvailable", { tag: info.latest.tag })}
         </strong>
         <span className="text-xs text-muted-foreground">
-          {t("settings.version", { version })}
+          <span className="selectable">{t("settings.version", { version })}</span>
         </span>
       </div>
       <p className="mt-1.5 text-xs text-muted-foreground">{t("settings.updateHow")}</p>

@@ -196,6 +196,24 @@ describe("the cashflow columns", () => {
     expect(Number(band()?.getAttribute("x"))).toBeGreaterThan(0);
   });
 
+  it("leads with the month's net, at the size of the answer it is", () => {
+    /*
+     * The figures used to be set in the same 12px muted grey as an axis label — the chart's whole
+     * answer, ranked below the legend. The net leads now, signed and coloured by direction, with
+     * the two sides under it as its parts.
+     */
+    renderInApp(<CashflowChart points={cashflow} currency="UAH" />);
+    const readout = screen.getByRole("status");
+    const hero = readout.querySelector(".text-\\[26px\\]");
+
+    expect(hero).toBeTruthy();
+    // The latest month by default: 500 000 in, 800 000 out.
+    expect(hero!.textContent).toMatch(/−3\s*000/u);
+    expect(hero!.classList.contains("text-expense")).toBe(true);
+    // And the two sides are still there, in smaller type beneath.
+    expect(readout.textContent).toMatch(/\+5\s*000/u);
+  });
+
   it("names both series in words, not only in colour", () => {
     renderInApp(<CashflowChart points={cashflow} currency="UAH" />);
     expect(screen.getByText("Доход")).toBeTruthy();

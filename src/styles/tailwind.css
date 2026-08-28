@@ -219,6 +219,37 @@
     background: var(--background);
     color: var(--foreground);
     font-family: var(--font-sans);
+
+    /*
+     * Nothing is selectable by default. This is an app driven by taps and *holds* — the add button,
+     * the quick tiles, the transaction rows, the backspace key and the delete button all mean
+     * something different when held — and on iOS a long press on ordinary text starts a selection
+     * and raises the copy callout over whatever is underneath. The gesture and the selection were
+     * competing everywhere, and the pieces that had been fixed one at a time (the keypad, the
+     * tiles, the chips) were the ones somebody had already been bitten by.
+     *
+     * The exceptions are below: anything a person types, and anything explicitly marked as worth
+     * copying. Nothing else in this app is prose — the one place a value has to leave the screen,
+     * the reports table, has its own copy button, and the invite link goes straight to the share
+     * sheet without ever being rendered as text.
+     */
+    -webkit-user-select: none;
+    user-select: none;
+    -webkit-touch-callout: none;
+  }
+
+  /*
+   * What people type stays selectable, or editing a note becomes impossible: no caret placement by
+   * long press, no drag to correct a word.
+   */
+  input,
+  textarea,
+  select,
+  [contenteditable="true"],
+  .selectable {
+    -webkit-user-select: text;
+    user-select: text;
+    -webkit-touch-callout: default;
   }
 
   input:not([type="checkbox"]):not([type="radio"]):not([type="file"]):not([type="range"]),

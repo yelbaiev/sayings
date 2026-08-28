@@ -90,12 +90,8 @@ export function TransactionRow({
             onPointerLeave: () => press.cancel(),
             onPointerCancel: () => press.cancel(),
             onPointerMove: () => press.cancel(),
-            // iOS Safari does not fire contextmenu for touch, so the long press has to
-            // suppress the text-selection callout itself.
-            style: {
-              WebkitTouchCallout: "none" as const,
-              userSelect: "none" as const,
-            },
+            // The selection callout that used to fight this long press is suppressed app-wide now,
+            // in the base layer — see src/styles/tailwind.css.
           }
         : { onClick })}
       {...(onClick ? { type: "button" as const } : {})}

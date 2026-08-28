@@ -251,6 +251,33 @@ describe("the sheet that has to share the screen", () => {
   });
 });
 
+describe("the app is held, not read", () => {
+  const base = strip(
+    readFileSync(new URL("../../src/styles/tailwind.css", import.meta.url), "utf8"),
+  );
+
+  it("suppresses text selection and the iOS callout on everything by default", () => {
+    /*
+     * Long press means something in six places here — the add button, a quick tile, a transaction
+     * row, the backspace key, hold-to-delete — and on iOS a long press on ordinary text starts a
+     * selection and raises the copy callout over whatever is under it. The two were competing
+     * app-wide, and the components that had already been fixed were simply the ones somebody had
+     * been bitten by. It belongs in the base layer, once.
+     */
+    const body = base.slice(base.indexOf("body {"), base.indexOf("input,"));
+    expect(body).toMatch(/user-select:\s*none/);
+    expect(body).toMatch(/-webkit-touch-callout:\s*none/);
+  });
+
+  it("keeps what people type selectable", () => {
+    // Without this, editing a note has no caret placement by long press and no drag to fix a word.
+    const exception = base.slice(base.indexOf("input,"));
+    expect(exception).toMatch(/textarea/);
+    expect(exception).toMatch(/\.selectable/);
+    expect(exception).toMatch(/user-select:\s*text/);
+  });
+});
+
 describe("inline styles only ever decrease", () => {
   it("holds the line at 15", () => {
     /*

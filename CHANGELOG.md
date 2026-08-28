@@ -1,5 +1,15 @@
 # Changelog
 
+## Version 1.1.5
+
+- Fixed: holding anything in the app no longer starts a text selection or raises the copy callout
+  over what is underneath. Long press means something in six places here, and the two were
+  competing app-wide — on the chart's month names, on list rows, on headings. What you type stays
+  selectable, and so does the version number in settings
+- Changed: the cashflow figures now lead the card at full size, coloured by direction, with what
+  came in and what went out beneath them. They were set in the same small grey as an axis label —
+  the chart's whole answer, ranked below the legend
+
 ## Version 1.1.4
 
 - Changed: the net-worth line is a smooth curve with a fading wash beneath it, and the scrub cursor
