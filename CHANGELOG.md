@@ -1,5 +1,11 @@
 # Changelog
 
+## Version 1.0.5
+
+- Changed: the iOS haptic fallback fires through a label rather than clicking the hidden switch
+  directly — the path a real tap takes, and the one least likely to be dismissed as programmatic
+- Changed: the Android vibration pulse is 15ms, since some phones round shorter ones away
+
 ## Version 1.0.4
 
 - Added: filtering history to one account now shows that card's current balance beside its name.

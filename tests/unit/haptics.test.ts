@@ -33,7 +33,7 @@ describe("tapFeedback", () => {
 
     tapFeedback();
 
-    expect(vibrate).toHaveBeenCalledWith(8);
+    expect(vibrate).toHaveBeenCalledWith(15);
     // One tick is enough: nothing was appended to the document to get it.
     expect(hiddenSwitch()).toBeNull();
   });
@@ -46,10 +46,12 @@ describe("tapFeedback", () => {
 
     const input = hiddenSwitch();
     expect(input).toBeTruthy();
-    // Hidden from sight and from a screen reader, but rendered: an element the browser is not
+    // Hidden from sight and from a screen reader, but rendered: a control the browser is not
     // drawing does not play the system haptic.
-    expect(input?.getAttribute("aria-hidden")).toBe("true");
-    expect((input as HTMLInputElement).style.display).not.toBe("none");
+    expect(input?.closest("[aria-hidden=true]")).toBeTruthy();
+    expect((input?.parentElement as HTMLElement).style.display).not.toBe("none");
+    // Fired through the label, the path a real tap would take.
+    expect(document.querySelector(`label[for="${input!.id}"]`)).toBeTruthy();
   });
 
   it("moves the switch on every press, since the movement is what plays the haptic", () => {
