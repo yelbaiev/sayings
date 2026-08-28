@@ -1,8 +1,8 @@
 import { fireEvent, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 import { renderInApp } from "./harness";
-import { CashflowChart, TrendChart } from "~/features/reports/charts";
+import { CashflowChart, DonutChart, PeriodStrip, TrendChart } from "~/features/reports/charts";
 
 /**
  * The two charts, and specifically the three things that were wrong with the one they replace.
@@ -254,5 +254,120 @@ describe("the cashflow columns", () => {
     expect(heightOf('path[fill="var(--expense)"]', 1)).toBeGreaterThan(
       heightOf('path[fill="var(--income)"]', 1),
     );
+  });
+});
+
+const category = (id: string, value: number, color = "#3E63DD") => ({
+  id,
+  label: id,
+  color,
+  value,
+});
+
+describe("the category donut", () => {
+  it("folds the tail into one slice rather than drawing a dozen", () => {
+    /*
+     * Past the sixth, arcs are a few pixels of hue each — too thin to point at and too close to
+     * tell apart. The donut answers "what is most of this"; the ranked list under it is where the
+     * tail is read, with a name and an amount per category.
+     */
+    const many = Array.from({ length: 11 }, (_, i) => category(`c${i}`, 1000 - i * 10));
+    const { container } = renderInApp(
+      <DonutChart
+        slices={many}
+        total={10_450}
+        currency="UAH"
+        label="Всего расходов"
+        caption="авг."
+      />,
+    );
+
+    // Six named slices plus one for the rest.
+    expect(container.querySelectorAll("circle")).toHaveLength(7);
+  });
+
+  it("draws every slice when there is no tail to fold", () => {
+    const { container } = renderInApp(
+      <DonutChart
+        slices={[category("a", 600), category("b", 400)]}
+        total={1000}
+        currency="UAH"
+        label="Всего расходов"
+        caption="авг."
+      />,
+    );
+    expect(container.querySelectorAll("circle")).toHaveLength(2);
+  });
+
+  it("leaves out a category that spent nothing", () => {
+    const { container } = renderInApp(
+      <DonutChart
+        slices={[category("a", 600), category("b", 0)]}
+        total={600}
+        currency="UAH"
+        label="Всего расходов"
+        caption="авг."
+      />,
+    );
+    expect(container.querySelectorAll("circle")).toHaveLength(1);
+  });
+
+  it("puts the total in the middle, and a touched category in its place", () => {
+    const { container } = renderInApp(
+      <DonutChart
+        slices={[category("Транспорт", 700), category("Кафе", 300)]}
+        total={1000}
+        currency="UAH"
+        label="Всего расходов"
+        caption="авг."
+      />,
+    );
+
+    expect(container.textContent).toContain("Всего расходов");
+    fireEvent.pointerDown(container.querySelectorAll("circle")[0]!);
+    expect(container.textContent).toContain("Транспорт");
+    // Its share, so the centre says what the slice is worth as well as what it is.
+    expect(container.textContent).toContain("70%");
+
+    // Touching it again lets go, rather than trapping the centre on one category.
+    fireEvent.pointerDown(container.querySelectorAll("circle")[0]!);
+    expect(container.textContent).toContain("Всего расходов");
+  });
+});
+
+describe("the month strip", () => {
+  const bars = [
+    { period: "2026-06", value: 200 },
+    { period: "2026-07", value: 400 },
+    { period: "2026-08", value: 100 },
+  ];
+
+  it("is a control first: every month is pressable and one is marked", async () => {
+    const onSelect = vi.fn();
+    renderInApp(
+      <PeriodStrip bars={bars} selected="2026-07" onSelect={onSelect} tone="expense" />,
+    );
+
+    const buttons = screen.getAllByRole("button");
+    expect(buttons).toHaveLength(3);
+    expect(buttons[1]!.getAttribute("aria-pressed")).toBe("true");
+    expect(buttons[0]!.getAttribute("aria-pressed")).toBe("false");
+
+    await userEvent.click(buttons[2]!);
+    expect(onSelect).toHaveBeenCalledWith("2026-08");
+  });
+
+  it("gives an empty month a visible stub rather than nothing to press", () => {
+    // A month with no spending still has to be reachable — it is how you get back to one that has.
+    const { container } = renderInApp(
+      <PeriodStrip
+        bars={[{ period: "2026-06", value: 0 }, { period: "2026-07", value: 400 }]}
+        selected="2026-07"
+        onSelect={() => undefined}
+        tone="expense"
+      />,
+    );
+    const fills = container.querySelectorAll("span[style]");
+    expect(fills[0]!.getAttribute("style")).toContain("6%");
   });
 });

@@ -213,20 +213,34 @@ describe("monthOverview", () => {
 
   it("computes each category's share of the month's spending", () => {
     const overview = monthOverview(rows, CATEGORIES, "2026-08");
-    const travel = overview.byCategory.find((r) => r.category.name === "Travel")!;
+    const travel = overview.byCategory.expense.find((r) => r.category.name === "Travel")!;
     expect(travel.share).toBeCloseTo(0.75, 5);
+  });
+
+  it("keeps each side to itself, and shares it against its own total", () => {
+    /*
+     * One list used to hold both, with every share taken against expenses — so a ₴9 000 salary in
+     * a month of ₴4 000 of spending appeared among the spending categories at 225%. They are two
+     * reports, and this is the split that makes them two.
+     */
+    const overview = monthOverview(rows, CATEGORIES, "2026-08");
+
+    expect(overview.byCategory.expense.map((r) => r.category.name)).toEqual(["Travel", "Groceries"]);
+    expect(overview.byCategory.income.map((r) => r.category.name)).toEqual(["Salary"]);
+    // The one income category is all of the income, not twice the expenses.
+    expect(overview.byCategory.income[0]!.share).toBeCloseTo(1, 5);
   });
 
   it("compares against the same category last month", () => {
     const overview = monthOverview(rows, CATEGORIES, "2026-08");
-    const groceries = overview.byCategory.find((r) => r.category.name === "Groceries")!;
+    const groceries = overview.byCategory.expense.find((r) => r.category.name === "Groceries")!;
     // ₴500 last month, ₴1000 this month.
     expect(groceries.changeRatio).toBeCloseTo(1, 5);
   });
 
   it("reports no change ratio when there is no base to compare against", () => {
     const overview = monthOverview(rows, CATEGORIES, "2026-08");
-    const travel = overview.byCategory.find((r) => r.category.name === "Travel")!;
+    const travel = overview.byCategory.expense.find((r) => r.category.name === "Travel")!;
     expect(travel.changeRatio).toBeNull();
   });
 

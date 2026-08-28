@@ -188,6 +188,12 @@ const uk: Dictionary = {
   "reports.empty": "Немає даних за цей період.",
   "reports.copyTable": "Копіювати таблицю",
   "reports.showTable": "Таблиця",
+  "reports.otherCategories": {
+    one: "ще {count}",
+    few: "ще {count}",
+    many: "ще {count}",
+    other: "ще {count}",
+  },
   "reports.noRate": "Немає курсу для {currencies} — ці рахунки не увійшли до підсумку.",
   "reports.hideTable": "Графік",
   "reports.copied": "Скопійовано",

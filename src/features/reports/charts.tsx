@@ -692,3 +692,197 @@ export function TrendChart({
     </ChartFrame>
   );
 }
+
+export interface DonutSlice {
+  id: string;
+  label: string;
+  color: string;
+  value: Minor;
+}
+
+/** Six named slices and a seventh for everything else. See the note on the component. */
+const DONUT_SLICES = 6;
+
+/**
+ * Part-to-whole for a month's categories, with the total in the middle.
+ *
+ * **Six slices and a rest, not a dozen.** The report this is modelled on draws every category, and
+ * past the sixth the arcs are a few pixels of hue each — too thin to point at, too close to tell
+ * apart, and adjacent in colour by accident rather than by meaning. The donut answers "what is
+ * most of this"; the ranked list underneath is where the tail is read, category by category, with
+ * its share and its amount. Folding is not a limitation to apologise for — it is what keeps the
+ * shape readable.
+ *
+ * Slices wear each category's **own** colour, the one on its icon everywhere else in the app. That
+ * is identity the household chose, and re-colouring it here would break the only association a
+ * reader already has. Colour is never the sole channel: every slice is named in the list below.
+ */
+export function DonutChart({
+  slices,
+  total,
+  currency,
+  label,
+  caption,
+}: {
+  slices: DonutSlice[];
+  total: Minor;
+  currency: Currency;
+  /** What the total is — "Total expenses". The centre needs to say what it is counting. */
+  label: string;
+  /** Under the figure: the period it covers. */
+  caption: string;
+}) {
+  const { t } = useApp();
+  const [active, setActive] = useState<string | null>(null);
+
+  const ranked = [...slices].filter((slice) => slice.value > 0).sort((a, b) => b.value - a.value);
+  const head = ranked.slice(0, DONUT_SLICES);
+  const tail = ranked.slice(DONUT_SLICES);
+  const shown: DonutSlice[] = tail.length
+    ? [
+        ...head,
+        {
+          id: "__rest",
+          label: t("reports.otherCategories", { count: tail.length }),
+          color: "var(--muted-foreground)",
+          value: tail.reduce((sum, slice) => sum + slice.value, 0),
+        },
+      ]
+    : head;
+
+  const size = 208;
+  const stroke = 26;
+  const radius = (size - stroke) / 2;
+  const circumference = 2 * Math.PI * radius;
+  const sum = shown.reduce((acc, slice) => acc + slice.value, 0) || 1;
+  /* The 2px surface gap the mark spec asks for, expressed as arc length. Never a stroke drawn
+     around a slice — that adds ink that is not data. */
+  const gap = shown.length > 1 ? 2 : 0;
+
+  const selected = shown.find((slice) => slice.id === active);
+  const centreValue = selected ? selected.value : total;
+
+  /* Arc lengths and their starting offsets, computed once. Accumulating a running offset inside
+     the map would be a mutation during render, which the compiler rejects — rightly, since a second
+     pass would start from wherever the first one left it. */
+  const arcs = shown.reduce<{ slice: DonutSlice; dash: number; offset: number }[]>(
+    (acc, slice) => {
+      const previous = acc[acc.length - 1];
+      const offset = previous ? previous.offset + (previous.slice.value / sum) * circumference : 0;
+      const length = (slice.value / sum) * circumference;
+      return [...acc, { slice, dash: Math.max(0, length - gap), offset }];
+    },
+    [],
+  );
+
+  return (
+    <div className="flex flex-col items-center">
+      <div className="relative">
+        <svg
+          className="sensitive block"
+          width={size}
+          height={size}
+          viewBox={`0 0 ${size} ${size}`}
+          role="img"
+          aria-label={label}
+        >
+          {/* Rotated so the first and largest slice starts at twelve o'clock, where the eye does. */}
+          <g transform={`rotate(-90 ${size / 2} ${size / 2})`}>
+            {arcs.map(({ slice, dash, offset }) => (
+              <circle
+                key={slice.id}
+                cx={size / 2}
+                cy={size / 2}
+                r={radius}
+                fill="none"
+                stroke={slice.color}
+                strokeWidth={active === slice.id ? stroke + 4 : stroke}
+                strokeDasharray={`${dash} ${circumference - dash}`}
+                strokeDashoffset={-offset}
+                opacity={active && active !== slice.id ? 0.35 : 1}
+                onPointerDown={() => setActive(active === slice.id ? null : slice.id)}
+              />
+            ))}
+          </g>
+        </svg>
+
+        {/* The centre. Absolutely positioned rather than SVG text, so the figure wears the app's
+            own type and the app's own Amount component rather than a second way of drawing money. */}
+        <div className="pointer-events-none absolute inset-0 flex flex-col items-center justify-center px-10 text-center">
+          <span className="text-xs text-muted-foreground">{selected ? selected.label : label}</span>
+          <Amount minor={centreValue} currency={currency} tone="neutral" size="hero" />
+          <span className="text-xs text-muted-foreground">
+            {selected ? `${Math.round((selected.value / sum) * 100)}%` : caption}
+          </span>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+export interface PeriodBar {
+  period: string;
+  value: Minor;
+}
+
+/**
+ * The strip of months under a report: how big each was, and which one is being read.
+ *
+ * It is a control before it is a chart — the way to move between months without stepping through
+ * them one arrow at a time — so the selected column is filled and the rest are a track. Nine of
+ * them, ending at the selected month, which is as many as fit under a thumb at phone width.
+ */
+export function PeriodStrip({
+  bars,
+  selected,
+  onSelect,
+  tone,
+}: {
+  bars: PeriodBar[];
+  selected: string;
+  onSelect: (period: string) => void;
+  tone: "expense" | "income";
+}) {
+  const { locale } = useApp();
+  const max = Math.max(...bars.map((bar) => bar.value), 1);
+
+  return (
+    <div className="flex items-end gap-1">
+      {bars.map((bar) => {
+        const isSelected = bar.period === selected;
+        return (
+          <button
+            key={bar.period}
+            type="button"
+            className="min-w-0 flex-1"
+            onClick={() => onSelect(bar.period)}
+            aria-pressed={isSelected}
+          >
+            <span className="flex h-12 w-full items-end rounded-sm bg-muted">
+              {/* Every month in the colour of what it measures, the chosen one at full strength.
+                  Grey columns with one coloured said "buttons, one of them on"; this says "spending,
+                  and this is the month you are reading". */}
+              <span
+                className={cn(
+                  "sensitive block w-full rounded-sm",
+                  tone === "income" ? "bg-income" : "bg-expense",
+                  !isSelected && "opacity-30",
+                )}
+                // eslint-disable-next-line no-restricted-syntax -- the bar's height is its value
+                style={{ height: `${Math.max(6, (bar.value / max) * 100)}%` }}
+              />
+            </span>
+            <span
+              className={cn(
+                "mt-1 block truncate text-[10px]",
+                isSelected ? "font-semibold text-foreground" : "text-muted-foreground",
+              )}
+            >
+              {formatMonthShort(bar.period, locale)}
+            </span>
+          </button>
+        );
+      })}
+    </div>
+  );
+}

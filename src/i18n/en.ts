@@ -178,6 +178,10 @@ const en = {
   "reports.empty": "No data for this period.",
   "reports.copyTable": "Copy table",
   "reports.showTable": "Table",
+  "reports.otherCategories": {
+    one: "{count} more",
+    other: "{count} more",
+  },
   "reports.noRate": "No rate held for {currencies}, so those accounts are not in the total.",
   "reports.hideTable": "Chart",
   "reports.copied": "Copied",

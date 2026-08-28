@@ -1,11 +1,12 @@
 import type { Currency } from "@shared/currency";
+import { signedMinor } from "@shared/money";
 import type { Transaction } from "@shared/schema";
 import { useMemo, useState } from "react";
 import { useApp } from "~/app/AppContext";
 import { useAccounts, useCategories, useLookups, useMembers, useTransactions } from "~/db/queries";
 import { useLatestRates } from "~/db/useRates";
 import { TransactionRow } from "~/features/transactions/TransactionRow";
-import { CashflowChart, TrendChart } from "./charts";
+import { CashflowChart, DonutChart, PeriodStrip, TrendChart } from "./charts";
 import {
   cashflowByAccount,
   cashflowOverTime,
@@ -38,6 +39,8 @@ export function ReportsPage() {
   const [period, setPeriod] = useState<Period>("month");
   const [kind, setKind] = useState<"expense" | "income">("expense");
   const [month, setMonth] = useState(() => monthOf(todayIso()));
+  /** Which side the month report is showing. Spending is what gets read most, so it leads. */
+  const [monthKind, setMonthKind] = useState<"expense" | "income">("expense");
   /**
    * The matrix used to render every month from the first transaction to today — 33 columns once
    * the Saldo history landed, which is a lot of sideways scrolling to reach the current month.
@@ -71,6 +74,23 @@ export function ReportsPage() {
     () => monthOverview(transactions, categories, month),
     [transactions, categories, month],
   );
+  const monthRows = overview.byCategory[monthKind];
+
+  /* Nine months ending at the one being read, each sized by that side's total. */
+  const monthBars = useMemo(() => {
+    const months = Array.from({ length: 9 }, (_, index) => addMonths(month, index - 8));
+    const totals = new Map(months.map((bucket) => [bucket, 0]));
+    for (const tx of transactions) {
+      const bucket = monthOf(tx.occurred_on);
+      if (!totals.has(bucket)) continue;
+      const signed = signedMinor(tx.kind, tx.base_amount_minor);
+      if (signed === 0) continue;
+      if (monthKind === "income" ? signed > 0 : signed < 0) {
+        totals.set(bucket, (totals.get(bucket) ?? 0) + Math.abs(signed));
+      }
+    }
+    return months.map((bucket) => ({ period: bucket, value: totals.get(bucket) ?? 0 }));
+  }, [transactions, month, monthKind]);
 
   if (transactions.length === 0) {
     return (
@@ -228,6 +248,20 @@ export function ReportsPage() {
 
       {tab === "month" && (
         <>
+          {/* Which side is being read. The two are different questions — the spending report and
+              the earning one — and they used to share one list, with every share taken against
+              expenses so a salary read as "226% of expenses". */}
+          <div className="mb-3">
+            <Segmented
+              value={monthKind}
+              onChange={(value) => setMonthKind(value as "expense" | "income")}
+              options={[
+                { value: "expense", label: t("kind.expense") },
+                { value: "income", label: t("kind.income") },
+              ]}
+            />
+          </div>
+
           <div className="mb-3 flex flex-wrap items-center gap-2">
             <Button size="sm" onClick={() => setMonth(addMonths(month, -1))}>
               ‹
@@ -242,7 +276,34 @@ export function ReportsPage() {
             </Button>
           </div>
 
-          <div className={cn(CARD, "mb-4")}>
+          <div className={cn(CARD, "mb-3")}>
+            <DonutChart
+              slices={monthRows.map((row) => ({
+                id: row.category.id,
+                label: row.category.name,
+                color: row.category.color ?? "var(--muted-foreground)",
+                value: row.total,
+              }))}
+              total={monthKind === "income" ? overview.income : overview.expenses}
+              currency={baseCurrency}
+              label={monthKind === "income" ? t("reports.totalIncome") : t("reports.totalExpenses")}
+              caption={formatMonth(month, locale)}
+            />
+
+            {/* The strip doubles as the way between months: nine of them ending at the one being
+                read, which is as many as fit under a thumb. The arrows above still step one at a
+                time, and the window follows them. */}
+            <div className="mt-4">
+              <PeriodStrip
+                bars={monthBars}
+                selected={month}
+                onSelect={setMonth}
+                tone={monthKind}
+              />
+            </div>
+          </div>
+
+          <div className={cn(CARD, "mb-3")}>
             <div className="flex items-center justify-between gap-3">
               <span className="text-xs text-muted-foreground">{t("reports.totalIncome")}</span>
               <Amount minor={overview.income} currency={baseCurrency} tone="income" />
@@ -263,7 +324,7 @@ export function ReportsPage() {
           </div>
 
           <div className={LIST}>
-            {overview.byCategory.map((row) => (
+            {monthRows.map((row) => (
               <button
                 key={row.category.id}
                 type="button"

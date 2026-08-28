@@ -1,5 +1,16 @@
 # Changelog
 
+## Version 1.2.0
+
+- Added: expenses by category and income by category, as two reports rather than one list. A donut
+  with the month's total in the middle, a strip of nine months to move between periods, and the
+  ranked list that was already there
+- Fixed: the month's category list mixed income in with spending and took every share against total
+  expenses, so a salary appeared among the spending categories at "226% of expenses"
+- Changed: the donut draws the six largest categories and folds the rest into one slice. Past the
+  sixth the arcs are too thin to point at and too close in colour to tell apart; the list beneath is
+  where the tail is read
+
 ## Version 1.1.5
 
 - Fixed: holding anything in the app no longer starts a text selection or raises the copy callout

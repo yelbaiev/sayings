@@ -133,18 +133,28 @@ export function categoryMatrix(
 
 /* ---------------------------------------------------------------------- month overview */
 
+export interface CategoryShare {
+  category: Category;
+  total: Minor;
+  /** Of its own side's total — spending against spending, earnings against earnings. */
+  share: number;
+  /** Change against the same category last month, as a ratio. Null when there is no base. */
+  changeRatio: number | null;
+}
+
 export interface MonthOverview {
   month: string;
   income: Minor;
   expenses: Minor;
   net: Minor;
-  byCategory: {
-    category: Category;
-    total: Minor;
-    share: number;
-    /** Change against the same category last month, as a ratio. Null when there is no base. */
-    changeRatio: number | null;
-  }[];
+  /**
+   * The month's categories, split by which side they are on.
+   *
+   * One list used to hold both, with every share taken against total *expenses* — so a salary
+   * appeared among the spending categories at "226% of expenses". They are two different
+   * questions, and the two reports built on this are the shape that admits it.
+   */
+  byCategory: { expense: CategoryShare[]; income: CategoryShare[] };
 }
 
 export function monthOverview(
@@ -178,21 +188,34 @@ export function monthOverview(
     }
   }
 
-  const byCategory = [...current.entries()]
+  const rows = [...current.entries()]
     .map(([categoryId, total]) => {
       const base = prior.get(categoryId);
+      const category =
+        categoryById.get(categoryId) ??
+        ({ id: categoryId, name: "—", icon: "❓", color: "#6E6E76", kind: "expense" } as Category);
       return {
-        category:
-          categoryById.get(categoryId) ??
-          ({ id: categoryId, name: "—", icon: "❓", color: "#6E6E76" } as Category),
+        category,
         total,
-        share: expenses > 0 ? total / expenses : 0,
+        // Filled in below, once it is known which total this row is a share of.
+        share: 0,
         changeRatio: base && base > 0 ? (total - base) / base : null,
       };
     })
     .sort((a, b) => b.total - a.total);
 
-  return { month, income, expenses, net: income - expenses, byCategory };
+  const split = (kind: "expense" | "income", against: Minor) =>
+    rows
+      .filter((row) => row.category.kind === kind)
+      .map((row) => ({ ...row, share: against > 0 ? row.total / against : 0 }));
+
+  return {
+    month,
+    income,
+    expenses,
+    net: income - expenses,
+    byCategory: { expense: split("expense", expenses), income: split("income", income) },
+  };
 }
 
 /* ------------------------------------------------------------------------- net worth */
