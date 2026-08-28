@@ -59,12 +59,62 @@ describe("the net-worth line", () => {
       <TrendChart points={trend} currency="UAH" title="Чистые активы" />,
     );
 
-    const bands = container.querySelectorAll('rect[fill="transparent"]');
-    fireEvent.pointerDown(bands[1]!);
+    const svg = container.querySelector("svg")!;
+    // Three points across a 320-wide fallback: the middle one sits around x = 160.
+    fireEvent.pointerDown(svg, { clientX: 160, pointerId: 1 });
     expect(screen.getByRole("status").textContent).toMatch(/440\s*000/u);
 
     await userEvent.click(screen.getByRole("button", { name: "Таблица" }));
     expect(screen.getByRole("table").textContent).toMatch(/480\s*000/u);
+  });
+
+  it("follows a finger along the curve without needing a new press", () => {
+    /*
+     * The difference between tapping and scrubbing. The pointer is captured on the way down, so
+     * moves keep arriving as the finger slides — including past the edge of the plot, where they
+     * clamp to the last point rather than stopping.
+     */
+    const { container } = renderInApp(
+      <TrendChart points={trend} currency="UAH" title="Чистые активы" />,
+    );
+    const svg = container.querySelector("svg")!;
+    const readout = () => screen.getByRole("status").textContent ?? "";
+
+    fireEvent.pointerDown(svg, { clientX: 0, pointerId: 1 });
+    expect(readout()).toMatch(/400\s*000/u);
+
+    fireEvent.pointerMove(svg, { clientX: 160, pointerId: 1 });
+    expect(readout()).toMatch(/440\s*000/u);
+
+    fireEvent.pointerMove(svg, { clientX: 9_999, pointerId: 1 });
+    expect(readout()).toMatch(/480\s*000/u);
+  });
+
+  it("marks the point it is reading, on the curve itself", () => {
+    // Text moving above a chart that shows no sign of what it is reading is not a readout.
+    const { container } = renderInApp(
+      <TrendChart points={trend} currency="UAH" title="Чистые активы" />,
+    );
+    const svg = container.querySelector("svg")!;
+
+    expect(container.querySelectorAll("line")).toHaveLength(0);
+    fireEvent.pointerDown(svg, { clientX: 160, pointerId: 1 });
+    // A crosshair down the plot, and a marker sitting on the line.
+    expect(container.querySelectorAll("line")).toHaveLength(1);
+    expect(container.querySelectorAll("circle").length).toBeGreaterThan(1);
+  });
+
+  it("walks the series with the arrow keys", () => {
+    // The one route into a pointer-driven chart for someone without a pointer.
+    const { container } = renderInApp(
+      <TrendChart points={trend} currency="UAH" title="Чистые активы" />,
+    );
+    const svg = container.querySelector("svg")!;
+
+    fireEvent.keyDown(svg, { key: "ArrowRight" });
+    expect(screen.getByRole("status").textContent).toMatch(/400\s*000/u);
+    fireEvent.keyDown(svg, { key: "End" });
+    expect(screen.getByRole("status").textContent).toMatch(/480\s*000/u);
   });
 });
 
@@ -91,6 +141,17 @@ describe("the cashflow columns", () => {
     expect(topOf(income[0]!)).toBeLessThan(bottomOf(expense[0]!));
   });
 
+  it("marks the month it is reading, behind the columns", () => {
+    const { container } = renderInApp(<CashflowChart points={cashflow} currency="UAH" />);
+    const svg = container.querySelector("svg")!;
+    const band = () => container.querySelector('rect[opacity="0.5"]');
+
+    expect(band()).toBeNull();
+    fireEvent.pointerDown(svg, { clientX: 200, pointerId: 1 });
+    // Behind the second slot, not the first.
+    expect(Number(band()?.getAttribute("x"))).toBeGreaterThan(0);
+  });
+
   it("names both series in words, not only in colour", () => {
     renderInApp(<CashflowChart points={cashflow} currency="UAH" />);
     expect(screen.getByText("Доход")).toBeTruthy();
@@ -99,9 +160,10 @@ describe("the cashflow columns", () => {
 
   it("reads a month out on touch, both sides and the net", () => {
     const { container } = renderInApp(<CashflowChart points={cashflow} currency="UAH" />);
-    const hits = container.querySelectorAll('rect[fill="transparent"]');
+    const svg = container.querySelector("svg")!;
 
-    fireEvent.pointerDown(hits[1]!);
+    // Two months across 320: the second slot starts at 160.
+    fireEvent.pointerDown(svg, { clientX: 200, pointerId: 1 });
     const readout = screen.getByRole("status").textContent ?? "";
     expect(readout).toMatch(/5\s*000/u);
     expect(readout).toMatch(/8\s*000/u);

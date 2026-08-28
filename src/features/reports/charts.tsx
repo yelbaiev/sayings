@@ -50,6 +50,65 @@ function useWidth(fallback = 320): [React.RefObject<HTMLDivElement | null>, numb
   return [ref, width];
 }
 
+/**
+ * Turns a pointer anywhere over the plot into an index, and keeps delivering while a finger moves.
+ *
+ * Two details make the difference between tapping and scrubbing on a phone. The pointer is
+ * *captured* on the way down, so a finger that slides past the edge of the chart — or off it
+ * entirely — keeps reporting instead of stopping at the boundary. And `touch-action: pan-y` on the
+ * plot leaves the vertical axis to the browser, so the page still scrolls under a finger that
+ * started on the chart while the horizontal axis belongs to us. It is the same division the swipe
+ * rows use.
+ */
+function useScrub(count: number, indexAt: (x: number) => number) {
+  const [active, setActive] = useState<number | null>(null);
+
+  const read = (event: React.PointerEvent<SVGSVGElement>) => {
+    const box = event.currentTarget.getBoundingClientRect();
+    // jsdom reports a zero-width box; falling back to raw coordinates keeps the maths meaningful
+    // in tests instead of dividing by nothing.
+    const scale = box.width > 0 ? event.currentTarget.viewBox.baseVal.width / box.width : 1;
+    const x = (event.clientX - box.left) * scale;
+    setActive(Math.max(0, Math.min(count - 1, indexAt(x))));
+  };
+
+  return {
+    active,
+    clear: () => setActive(null),
+    handlers: {
+      /* The same readings by keyboard, which is the only way a chart driven by pointer position is
+         reachable without one. Arrow keys walk the series; Home and End jump to its ends. */
+      tabIndex: 0,
+      onKeyDown: (event: React.KeyboardEvent<SVGSVGElement>) => {
+        const step =
+          event.key === "ArrowRight" ? 1 : event.key === "ArrowLeft" ? -1 : 0;
+        if (step === 0 && event.key !== "Home" && event.key !== "End") return;
+        event.preventDefault();
+        setActive((current) => {
+          if (event.key === "Home") return 0;
+          if (event.key === "End") return count - 1;
+          const from = current ?? (step > 0 ? -1 : count);
+          return Math.max(0, Math.min(count - 1, from + step));
+        });
+      },
+      onBlur: () => setActive(null),
+      onPointerDown: (event: React.PointerEvent<SVGSVGElement>) => {
+        event.currentTarget.setPointerCapture?.(event.pointerId);
+        read(event);
+      },
+      onPointerMove: (event: React.PointerEvent<SVGSVGElement>) => read(event),
+      onPointerUp: (event: React.PointerEvent<SVGSVGElement>) => {
+        event.currentTarget.releasePointerCapture?.(event.pointerId);
+      },
+      // A mouse leaving puts the chart back to its resting state; a finger lifting does not, because
+      // the reason to lift it is to read what is under it.
+      onPointerLeave: (event: React.PointerEvent<SVGSVGElement>) => {
+        if (event.pointerType === "mouse") setActive(null);
+      },
+    },
+  };
+}
+
 /** Title, an optional readout, the plot, and the table twin behind a toggle. */
 function ChartFrame({
   title,
@@ -161,7 +220,8 @@ export function CashflowChart({
 }) {
   const { t, locale } = useApp();
   const [container, width] = useWidth();
-  const [active, setActive] = useState<number | null>(null);
+  const slotWidth = points.length > 0 ? width / points.length : width;
+  const { active, handlers } = useScrub(points.length, (x) => Math.floor(x / slotWidth));
 
   const height = 152;
   const axis = 16; // room under the plot for the period labels
@@ -180,7 +240,7 @@ export function CashflowChart({
   const span = maxIncome + maxExpense || 1;
   const zeroY = label + (maxIncome / span) * plot;
 
-  const slot = points.length > 0 ? width / points.length : width;
+  const slot = slotWidth;
   // ≤24px thick, and never filling the slot: the leftover is the 2px surface gap and then air.
   const barWidth = Math.max(3, Math.min(10, slot / 2 - 1));
 
@@ -222,27 +282,50 @@ export function CashflowChart({
         />
       }
       readout={
-        shown && (
-          <div className="mt-0.5 text-xs text-muted-foreground" role="status" aria-live="polite">
-            {formatMonthShort(shown.period, locale)} ·{" "}
-            <span className="sensitive">
-              +{formatAmount(shown.income, currency, locale)} · −
-              {formatAmount(shown.expenses, currency, locale)} ·{" "}
-              {formatMoney(shown.net, currency, locale, { signed: true })}
-            </span>
-          </div>
-        )
+        /*
+         * Always present, defaulting to the latest month. Rendering it only while a finger is down
+         * made the whole plot jump 16px the moment it was touched — the chart moving away from the
+         * point being aimed at.
+         */
+        (() => {
+          const point = shown ?? points[points.length - 1]!;
+          return (
+            <div className="mt-0.5 text-xs text-muted-foreground" role="status" aria-live="polite">
+              {formatMonthShort(point.period, locale)} ·{" "}
+              <span className="sensitive">
+                +{formatAmount(point.income, currency, locale)} · −
+                {formatAmount(point.expenses, currency, locale)} ·{" "}
+                {formatMoney(point.net, currency, locale, { signed: true })}
+              </span>
+            </div>
+          );
+        })()
       }
       table={table}
     >
       <svg
-        className="sensitive block w-full"
+        className="sensitive block w-full touch-pan-y"
         width={width}
         height={height}
         viewBox={`0 0 ${width} ${height}`}
         role="img"
         aria-label={t("reports.cashflow")}
+        {...handlers}
       >
+        {/* Behind the columns: the month under the finger, so the readout above is not the only
+            thing that says which one is being read. */}
+        {active !== null && (
+          <rect
+            x={active * slot}
+            y={0}
+            width={slot}
+            height={height - axis}
+            rx={4}
+            fill="var(--border)"
+            opacity={0.5}
+          />
+        )}
+
         {/* The baseline. Solid hairline, one step off the surface — it is the thing both series are
             measured from, not decoration. */}
         <line x1={0} y1={zeroY} x2={width} y2={zeroY} stroke="var(--border)" strokeWidth={1} />
@@ -261,18 +344,6 @@ export function CashflowChart({
               {point.expenses > 0 && (
                 <path d={columnPath(x, barWidth, zeroY + gap, down, false)} fill="var(--expense)" />
               )}
-
-              {/* The hit target is the whole slot, not the column: a 6px bar is not something to
-                  ask a thumb to land on. */}
-              <rect
-                x={index * slot}
-                y={0}
-                width={slot}
-                height={height - axis}
-                fill="transparent"
-                onPointerDown={() => setActive(index)}
-                onPointerEnter={() => setActive(index)}
-              />
             </g>
           );
         })}
@@ -356,12 +427,16 @@ export function TrendChart({
 }) {
   const { t, locale } = useApp();
   const [container, width] = useWidth();
-  const [active, setActive] = useState<number | null>(null);
 
   const height = 132;
   const axis = 16;
   const plot = height - axis;
   const inset = 6; // room for the end marker's ring, which would otherwise be clipped
+
+  /* Nearest point, not the band it fell in: on a line the reader is aiming at a vertex, and
+     rounding to the closest one means the marker lands where the eye already is. */
+  const step = points.length > 1 ? (width - inset * 2) / (points.length - 1) : width;
+  const { active, handlers } = useScrub(points.length, (x) => Math.round((x - inset) / step));
 
   if (points.length === 0) return null;
 
@@ -434,12 +509,13 @@ export function TrendChart({
       table={table}
     >
       <svg
-        className="sensitive block w-full"
+        className="sensitive block w-full touch-pan-y"
         width={width}
         height={height}
         viewBox={`0 0 ${width} ${height}`}
         role="img"
         aria-label={title}
+        {...handlers}
       >
         {zeroInside && (
           <line
@@ -447,6 +523,20 @@ export function TrendChart({
             y1={yOf(0)}
             x2={width}
             y2={yOf(0)}
+            stroke="var(--border)"
+            strokeWidth={1}
+          />
+        )}
+
+        {/* The finger's position on the line: a hairline down the plot and a marker on the curve.
+            Without them the only thing that moved while scrubbing was the text above, and the chart
+            gave no sign which point it was reading. */}
+        {active !== null && shown && (
+          <line
+            x1={xOf(active)}
+            y1={0}
+            x2={xOf(active)}
+            y2={plot}
             stroke="var(--border)"
             strokeWidth={1}
           />
@@ -461,6 +551,17 @@ export function TrendChart({
           strokeLinejoin="round"
         />
 
+        {active !== null && shown && (
+          <circle
+            cx={xOf(active)}
+            cy={yOf(shown.total)}
+            r={5}
+            fill="var(--transfer)"
+            stroke="var(--card)"
+            strokeWidth={2}
+          />
+        )}
+
         {/* The end marker, with a 2px ring in the surface colour so it stays legible where it sits
             on the line. */}
         {last && (
@@ -473,19 +574,6 @@ export function TrendChart({
             strokeWidth={2}
           />
         )}
-
-        {points.map((point, index) => (
-          <rect
-            key={point.period}
-            x={index * (width / points.length)}
-            y={0}
-            width={width / points.length}
-            height={plot}
-            fill="transparent"
-            onPointerDown={() => setActive(index)}
-            onPointerEnter={() => setActive(index)}
-          />
-        ))}
 
         {points.length > 0 && (
           <>

@@ -1,5 +1,15 @@
 # Changelog
 
+## Version 1.1.3
+
+- Added: slide a finger along either chart and the figures follow it. The pointer is captured on
+  the way down, so a finger that slides past the edge keeps reading instead of stopping there
+- Added: the charts now show what they are reading — a crosshair and a marker on the net-worth
+  curve, a highlighted month behind the cashflow columns. Before, only the text above moved
+- Added: arrow keys walk the series, and Home and End jump to its ends
+- Fixed: the cashflow figures appeared only while touched, so the plot jumped 16px away from the
+  finger aiming at it. They are always shown, defaulting to the latest month
+
 ## Version 1.1.2
 
 - Fixed: net worth counted only the accounts held in the household's base currency. Every euro and
