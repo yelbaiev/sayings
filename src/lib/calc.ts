@@ -195,6 +195,16 @@ export function pressBackspace(expression: Expression): Expression {
   };
 }
 
+/**
+ * Wipes the expression, for the held backspace.
+ *
+ * A separate export rather than `setExpression(EMPTY_EXPRESSION)` at the call site so the keypad
+ * states what it means and this file stays the only place that knows what "empty" is.
+ */
+export function pressClear(): Expression {
+  return EMPTY_EXPRESSION;
+}
+
 export type ExpressionToken =
   | { kind: "term"; text: string }
   | { kind: "operator"; operator: Operator };

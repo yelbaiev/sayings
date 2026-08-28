@@ -3,13 +3,13 @@ import { cn } from "~/lib/cn";
 import { Button } from "~/ui/Button";
 import { HoldButton } from "~/ui/HoldButton";
 import { CARD, HINT, LIST, PAGE, PAGE_TITLE, ROW, ROW_SUB, ROW_TITLE, SECTION_TITLE } from "~/ui/recipes";
-import { minorToMajor, parseMajorToMinor } from "@shared/money";
 import { parseTemplate, serialiseTemplate, type QuickTileTemplate } from "@shared/quick-tile";
 import type { Account, Category, Recurring } from "@shared/schema";
 import { useMemo, useState } from "react";
 import { useApp } from "~/app/AppContext";
 import { newId, put, remove } from "~/db/mutations";
 import { useAccounts, useCategories } from "~/db/queries";
+import { AmountField } from "~/features/entry/AmountField";
 import { toBaseAtLatest, useLatestRates } from "~/db/useRates";
 import { formatDate, formatMoney, todayIso } from "~/lib/format";
 import {
@@ -215,9 +215,7 @@ function RecurringSheet({
   const [kind, setKind] = useState<"expense" | "income">(existing?.kind ?? "expense");
   // The schedule's own currency, resolved first: the amount is scaled by it.
   const prefillCurrency: Currency = existing?.currency ?? baseCurrency;
-  const [amount, setAmount] = useState(
-    existing ? String(minorToMajor(existing.amount_minor, prefillCurrency)) : "",
-  );
+  const [amountMinor, setAmountMinor] = useState<number | null>(existing?.amount_minor ?? null);
   const [currency, setCurrency] = useState<Currency>(prefillCurrency);
   const [categoryId, setCategoryId] = useState(existing?.category_id ?? "");
   const [accountId, setAccountId] = useState(existing?.account_id ?? accounts[0]?.id ?? "");
@@ -229,13 +227,8 @@ function RecurringSheet({
   const categories = kind === "expense" ? expense : income;
 
   async function save() {
-    let minor: number;
-    try {
-      minor = parseMajorToMinor(amount, currency);
-    } catch {
-      setError(t("import.warning.noAmount"));
-      return;
-    }
+    // The pad cannot produce anything unparseable, so the try/catch the text input needed is gone.
+    const minor = amountMinor ?? 0;
     if (!label.trim()) {
       setError(t("quickTile.needLabel"));
       return;
@@ -318,14 +311,14 @@ function RecurringSheet({
 
       <Field label={t("entry.amount")}>
         <div className="flex flex-wrap items-center gap-2">
-          <input
-            type="text"
-            inputMode="decimal"
-            value={amount}
-            onChange={(event) => setAmount(event.target.value)}
-            placeholder="0"
-            className="min-w-0 flex-1"
-          />
+          <span className="min-w-0 flex-1">
+            <AmountField
+              valueMinor={amountMinor}
+              currency={currency}
+              onChange={setAmountMinor}
+              label={t("entry.amount")}
+            />
+          </span>
           <select
             value={currency}
             onChange={(event) => setCurrency(event.target.value as Currency)}

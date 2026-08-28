@@ -188,8 +188,17 @@ export function Shell({ children }: { children: ReactNode }) {
           /* Its own press animation lives in `active:scale-95` above, and the gesture machine owns
              what a press here means. The app-wide flash would animate the same transform. */
           data-press-flash="off"
-          // The only place the shortcuts are discoverable, and it costs nothing.
-          title={t("nav.addShortcuts")}
+          /*
+           * The tooltip carries the hold, the accessible name deliberately does not: renaming the
+           * primary action after a gesture nobody using a screen reader can perform buys nothing,
+           * and the visible way in is the repeat-last tile on the home screen. A tooltip is no use
+           * under a thumb.
+           */
+          title={
+            lastTransaction
+              ? `${t("nav.addShortcuts")} · ${t("entry.repeatLast")}`
+              : t("nav.addShortcuts")
+          }
           onPointerDown={() => pressGesture.down()}
           onPointerUp={() => pressGesture.up()}
           onPointerLeave={() => pressGesture.cancel()}

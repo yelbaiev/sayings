@@ -1,5 +1,18 @@
 # Changelog
 
+## Version 1.1.0
+
+- Added: the keypad now serves every field that takes an amount — budget limits, opening balances,
+  recurring amounts, quick tiles, split lines and the second leg of a cross-currency transfer. All
+  six took money through a plain text box before, with no arithmetic and no grouping
+- Added: hold ⌫ to clear the amount. Wiping a mistyped figure cost one press per digit
+- Added: a running balance down the history, showing what the card held after each transaction.
+  Only with one account chosen and nothing else narrowing the list — under a search the figures
+  stay true but stop adding up between neighbouring rows, which reads as broken
+- Added: "Repeat last" as a tile on the home screen. It has always worked as a long press on the
+  add button, which nobody could find
+- Removed: 23 unused interface strings in all three languages
+
 ## Version 1.0.6
 
 - Added: every button, chip, tab and tappable row in the app now flashes when pressed, the way the

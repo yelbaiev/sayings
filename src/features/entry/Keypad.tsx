@@ -1,8 +1,10 @@
 import type { Currency } from "@shared/currency";
 import { useApp } from "~/app/AppContext";
+import { useEffect, useRef } from "react";
 import {
   OPERATOR_GLYPHS,
   pressBackspace,
+  pressClear,
   pressDecimal,
   pressDigit,
   pressEquals,
@@ -49,6 +51,9 @@ import { flash } from "~/lib/press-flash";
  */
 const FLASH_CLASS = "keypad__key--flash";
 
+/** How long ⌫ must be held to clear rather than delete. Matches the add button's own threshold. */
+const CLEAR_HOLD_MS = 550;
+
 export function Keypad({
   expression,
   currency,
@@ -63,6 +68,25 @@ export function Keypad({
   /* The locale's own separator, from the same helper the amount display uses — the two sit one
      above the other, so a disagreement would be visible. */
   const decimal = decimalSeparator(locale);
+
+  /*
+   * The held backspace.
+   *
+   * Kept as a bare timer rather than routed through `createPressGesture`, whose whole shape is
+   * "a tap fires on release, a hold fires instead of it". Backspace is the other shape: it deletes
+   * on the way down like every other key, and holding it *adds* a clear. Bending the shared
+   * machine to do both would put its one invariant back in play for the add button.
+   */
+  const holdTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  const cancelHold = () => {
+    if (holdTimer.current !== null) clearTimeout(holdTimer.current);
+    holdTimer.current = null;
+  };
+
+  // A pad can be unmounted mid-hold — the sheet closes, the field collapses — and a timer that
+  // outlives it would clear an expression nobody is looking at any more.
+  useEffect(() => cancelHold, []);
 
   const key = (
     label: string,
@@ -140,9 +164,36 @@ export function Keypad({
         ariaLabel: t("entry.decimal"),
       })}
       {digit("0")}
-      {key("⌫", () => onChange(pressBackspace(expression)), {
-        ariaLabel: t("common.back"),
-      })}
+      <button
+        key="⌫"
+        type="button"
+        className="keypad__key"
+        /*
+         * Deletes on the way down like every other key, and starts the clock. Held past the
+         * threshold it wipes the whole amount — which used to cost one press per digit, and on a
+         * mistyped six-figure sum that is a lot of presses to correct one.
+         */
+        onPointerDown={(event) => {
+          flash(event.currentTarget, FLASH_CLASS);
+          onChange(pressBackspace(expression));
+          cancelHold();
+          holdTimer.current = setTimeout(() => {
+            onChange(pressClear());
+          }, CLEAR_HOLD_MS);
+        }}
+        onPointerUp={cancelHold}
+        onPointerLeave={cancelHold}
+        onPointerCancel={cancelHold}
+        onClick={(event) => {
+          if (event.detail !== 0) return;
+          flash(event.currentTarget, FLASH_CLASS);
+          onChange(pressBackspace(expression));
+        }}
+        onAnimationEnd={(event) => event.currentTarget.classList.remove(FLASH_CLASS)}
+        aria-label={t("common.back")}
+      >
+        ⌫
+      </button>
     </div>
   );
 }

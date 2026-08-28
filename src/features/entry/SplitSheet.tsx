@@ -1,8 +1,9 @@
 import type { Currency } from "@shared/currency";
-import { minorToMajor, parseMajorToMinor, type Minor } from "@shared/money";
+import type { Minor } from "@shared/money";
 import type { Category } from "@shared/schema";
 import { useMemo, useState } from "react";
 import { useApp } from "~/app/AppContext";
+import { AmountField } from "./AmountField";
 import { formatMoney } from "~/lib/format";
 import { Amount, IconChip, Sheet, chipClasses } from "~/ui";
 import { Button } from "~/ui/Button";
@@ -45,29 +46,26 @@ export function SplitSheet({
 }) {
   const { t, locale } = useApp();
 
-  const [lines, setLines] = useState<{ categoryId: string; text: string }[]>(() =>
+  /*
+   * Minor units, not text.
+   *
+   * The lines used to hold what was typed and re-parse it on every render, which meant a scaling
+   * bug was one `/100` away in three separate places — the seed, the "fill the rest" chip and the
+   * confirm. The keypad hands back minor units already, so the whole parse layer goes and the
+   * arithmetic below reads as arithmetic.
+   */
+  const [lines, setLines] = useState<{ categoryId: string; minor: number | null }[]>(() =>
     initial?.length
-      ? initial.map((l) => ({
-          categoryId: l.categoryId,
-          text: String(minorToMajor(l.amountMinor, currency)),
-        }))
+      ? initial.map((l) => ({ categoryId: l.categoryId, minor: l.amountMinor }))
       : [
-          { categoryId: categories[0]?.id ?? "", text: String(minorToMajor(totalMinor, currency)) },
-          { categoryId: "", text: "" },
+          { categoryId: categories[0]?.id ?? "", minor: totalMinor },
+          { categoryId: "", minor: null },
         ],
   );
 
   const parsed = useMemo(
-    () =>
-      lines.map((line) => {
-        if (!line.text.trim()) return { ...line, minor: 0 };
-        try {
-          return { ...line, minor: parseMajorToMinor(line.text, currency) };
-        } catch {
-          return { ...line, minor: 0 };
-        }
-      }),
-    [lines, currency],
+    () => lines.map((line) => ({ ...line, minor: line.minor ?? 0 })),
+    [lines],
   );
 
   const assigned = parsed.reduce((sum, line) => sum + line.minor, 0);
@@ -75,7 +73,7 @@ export function SplitSheet({
   const usable = parsed.filter((line) => line.minor > 0 && line.categoryId);
   const canConfirm = remainder === 0 && usable.length >= 2;
 
-  const update = (index: number, patch: Partial<{ categoryId: string; text: string }>) =>
+  const update = (index: number, patch: Partial<{ categoryId: string; minor: number | null }>) =>
     setLines((current) => current.map((line, i) => (i === index ? { ...line, ...patch } : line)));
 
   return (
@@ -119,28 +117,22 @@ export function SplitSheet({
             </select>
 
             <div className="flex flex-wrap items-center gap-2">
-              <input
-                type="text"
-                inputMode="decimal"
-                value={line.text}
-                onChange={(event) => update(index, { text: event.target.value })}
-                placeholder="0"
-                className="min-w-0 flex-1"
-                aria-label={t("entry.amount")}
-              />
+              <span className="min-w-0 flex-1">
+                <AmountField
+                  valueMinor={line.minor}
+                  currency={currency}
+                  onChange={(minor: number | null) => update(index, { minor })}
+                  label={t("entry.amount")}
+                />
+              </span>
               {/* Fills this line with whatever is unassigned — the common case is one typed
                   amount and "the rest". */}
               {remainder !== 0 && (
                 <button
                   type="button"
                   className={chipClasses()}
-                  onClick={() =>
-                    // Scaled by the currency, not /100: filling "the rest" on a yen split would
-                    // otherwise write a hundredth of it.
-                    update(index, {
-                      text: String(minorToMajor(parsed[index]!.minor + remainder, currency)),
-                    })
-                  }
+                  // No scaling to get wrong now that lines are minor units on both sides.
+                  onClick={() => update(index, { minor: parsed[index]!.minor + remainder })}
                 >
                   {formatMoney(remainder, currency, locale)}
                 </button>
@@ -160,7 +152,7 @@ export function SplitSheet({
       <Button
         block
         layoutClassName="mt-2"
-        onClick={() => setLines((c) => [...c, { categoryId: "", text: "" }])}
+        onClick={() => setLines((c) => [...c, { categoryId: "", minor: null }])}
       >
         {t("entry.splitAdd")}
       </Button>

@@ -1,11 +1,12 @@
 import { type Currency } from "@shared/currency";
-import { minorToMajor, parseMajorToMinor } from "@shared/money";
+import { minorToMajor } from "@shared/money";
 import type { Budget, Category } from "@shared/schema";
 import { useMemo, useState } from "react";
 import { useApp } from "~/app/AppContext";
 import { db } from "~/db/dexie";
 import { newId, put, remove } from "~/db/mutations";
 import { useCategories, useTransactions } from "~/db/queries";
+import { AmountField } from "~/features/entry/AmountField";
 import { budgetStatuses } from "~/lib/budget-engine";
 import { addMonths, formatMonth, monthOf, todayIso } from "~/lib/format";
 import { useLiveQuery } from "dexie-react-hooks";
@@ -155,21 +156,14 @@ function BudgetSheet({
   const { t, me, baseCurrency } = useApp();
 
   const [categoryId, setCategoryId] = useState(budget?.category_id ?? categories[0]?.id ?? "");
-  const [amount, setAmount] = useState(
-    budget ? String(minorToMajor(budget.amount_minor, baseCurrency)) : "",
-  );
+  const [amountMinor, setAmountMinor] = useState<number | null>(budget?.amount_minor ?? null);
   const [rollover, setRollover] = useState(budget?.rollover === 1);
   const [everyMonth, setEveryMonth] = useState(budget ? !budget.period_month : true);
   const [error, setError] = useState<string | null>(null);
 
   async function save() {
-    let minor: number;
-    try {
-      minor = parseMajorToMinor(amount, baseCurrency as Currency);
-    } catch {
-      setError(t("import.warning.noAmount"));
-      return;
-    }
+    // The pad cannot produce anything unparseable, so the try/catch the text input needed is gone.
+    const minor = amountMinor ?? 0;
     if (minor <= 0 || !categoryId) {
       setError(t("entry.needAmount"));
       return;
@@ -204,12 +198,13 @@ function BudgetSheet({
       </Field>
 
       <Field label={t("budgets.limit")}>
-        <input
-          type="text"
-          inputMode="decimal"
-          value={amount}
-          onChange={(event) => setAmount(event.target.value)}
-          placeholder="0"
+        {/* A budget is said as arithmetic more often than as a figure — "1200 a week times four" —
+            which is exactly what the pad is for. */}
+        <AmountField
+          valueMinor={amountMinor}
+          currency={baseCurrency as Currency}
+          onChange={setAmountMinor}
+          label={t("budgets.limit")}
           autoFocus
         />
       </Field>

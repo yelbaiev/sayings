@@ -4,6 +4,7 @@ import type { Account, Category, Member, Transaction } from "@shared/schema";
 import { useApp } from "~/app/AppContext";
 import { createPressGesture } from "~/lib/press-gesture";
 import { cn } from "~/lib/cn";
+import { formatMoney } from "~/lib/format";
 import { ROW, ROW_SUB, ROW_TITLE } from "~/ui/recipes";
 import { Amount, Avatar, IconChip } from "~/ui";
 import { TransferIcon } from "~/ui/icons";
@@ -27,6 +28,7 @@ export function TransactionRow({
   onClick,
   onLongPress,
   selected,
+  runningMinor,
 }: {
   transaction: Transaction;
   lookups: Lookups;
@@ -34,8 +36,14 @@ export function TransactionRow({
   /** Long press enters bulk-selection mode with this row selected. */
   onLongPress?: (() => void) | undefined;
   selected?: boolean | undefined;
+  /**
+   * What the filtered account held immediately after this transaction, when the history is showing
+   * one account and nothing else is narrowing the list. Undefined everywhere else — see
+   * HistoryPage, which explains why it is not always shown.
+   */
+  runningMinor?: number | undefined;
 }) {
-  const { t } = useApp();
+  const { t, locale } = useApp();
 
   const account = lookups.accounts.get(tx.account_id);
   const toAccount = tx.to_account_id ? lookups.accounts.get(tx.to_account_id) : undefined;
@@ -114,6 +122,16 @@ export function TransactionRow({
           signed={tx.kind === "income"}
         />
         {member && <Avatar name={member.display_name} color={member.avatar_color} />}
+        {/* The balance after this row, under the amount: smaller and muted, because it is context
+            for the figure above rather than a second figure competing with it. */}
+        {runningMinor !== undefined && (
+          <span className="sensitive block text-xs tabular-nums text-muted-foreground">
+            {/* Named for a screen reader, which would otherwise read two bare numbers on one row
+                with nothing to say which is the amount and which is what was left. */}
+            <span className="sr-only">{t("history.runningBalance")} </span>
+            {formatMoney(runningMinor, tx.currency as Currency, locale)}
+          </span>
+        )}
       </span>
     </Element>
   );

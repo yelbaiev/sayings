@@ -217,9 +217,16 @@ export function computeBalances(
  * transfer are indexed, so this touches only the rows that name this account.
  *
  * The figure ignores the page's filters, deliberately: a balance is what the card holds now, not
- * what the visible slice of history adds up to.
+ * what the visible slice of history adds up to. The rows come back with it because the same read
+ * answers the running-balance column — see src/lib/running-balance.ts — and reading them twice
+ * would double the cost of the page's heaviest query.
  */
-export function useAccountBalance(accountId: string | undefined): AccountBalance | null {
+export interface AccountLedger extends AccountBalance {
+  /** Every alive transaction naming this account, in no particular order. */
+  rows: Transaction[];
+}
+
+export function useAccountLedger(accountId: string | undefined): AccountLedger | null {
   const accounts = useAccounts(true);
   const account = accountId ? accounts.find((a) => a.id === accountId) : undefined;
 
@@ -238,7 +245,8 @@ export function useAccountBalance(accountId: string | undefined): AccountBalance
   if (!account) return null;
   // One account in, one balance out: `computeBalances` skips every leg naming an account it was
   // not given, which is exactly the arithmetic wanted here.
-  return computeBalances([account], rows)[0] ?? null;
+  const balance = computeBalances([account], rows)[0];
+  return balance ? { ...balance, rows } : null;
 }
 
 export function useBalances(): AccountBalance[] {

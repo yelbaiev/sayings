@@ -21,6 +21,7 @@ import {
   type Expression,
   type Operator,
 } from "~/lib/calc";
+import { AmountField } from "./AmountField";
 import { nextOccurrence } from "~/lib/recurring";
 import { Button } from "~/ui/Button";
 import { rateFor } from "~/lib/fx";
@@ -84,10 +85,9 @@ export function EntrySheet({
     editing?.account_id ?? null,
   );
   const [toAccountId, setToAccountId] = useState<string | null>(editing?.to_account_id ?? null);
-  const [toExpression, setToExpression] = useState<Expression>(() =>
-    editing?.to_amount_minor
-      ? fromMinor(editing.to_amount_minor, (editing.to_currency ?? editing.currency) as Currency)
-      : EMPTY_EXPRESSION,
+  /* The destination leg of a cross-currency transfer, in its own account's minor units. */
+  const [toAmountMinor, setToAmountMinor] = useState<number | null>(
+    editing?.to_amount_minor ?? null,
   );
   const [occurredOn, setOccurredOn] = useState(editing?.occurred_on ?? todayIso());
   const [note, setNote] = useState(editing?.note ?? "");
@@ -221,7 +221,6 @@ export function EntrySheet({
         : amountText.length <= 26
           ? "text-[20px]"
           : "text-[17px]";
-  const toAmountMinor = evaluate(toExpression, (toAccount?.currency as Currency) ?? currency);
 
   /*
    * In seeded order, on purpose — never re-ranked by usage.
@@ -288,7 +287,9 @@ export function EntrySheet({
   const canSave =
     amountMinor > 0 &&
     Boolean(account) &&
-    (needsDestination ? Boolean(toAccount) && (!crossCurrency || toAmountMinor > 0) : Boolean(categoryId));
+    (needsDestination
+      ? Boolean(toAccount) && (!crossCurrency || (toAmountMinor ?? 0) > 0)
+      : Boolean(categoryId));
 
   /*
    * Physical keyboard entry.
@@ -437,7 +438,7 @@ export function EntrySheet({
       category_id: needsDestination ? null : categoryId,
       amount_minor: amountMinor,
       currency,
-      to_amount_minor: needsDestination ? (crossCurrency ? toAmountMinor : amountMinor) : null,
+      to_amount_minor: needsDestination ? (crossCurrency ? (toAmountMinor ?? 0) : amountMinor) : null,
       to_currency: needsDestination ? toAccount!.currency : null,
       base_amount_minor: Math.round(amountMinor * rate),
       fx_rate: rate,
@@ -544,26 +545,26 @@ export function EntrySheet({
               {toAccount!.name} {t("entry.receives")}
             </span>
             <Amount
-              minor={toAmountMinor}
+              minor={toAmountMinor ?? 0}
               currency={toAccount!.currency as Currency}
               tone="income"
               cents
             />
           </div>
-          <input
-            type="text"
-            inputMode="decimal"
-            value={toExpression.current}
-            onChange={(event) =>
-              setToExpression({
-                ...EMPTY_EXPRESSION,
-                current: event.target.value.replace(/[^\d.,]/g, ""),
-              })
-            }
-            placeholder="0"
-            style={{ marginTop: 8, textAlign: "right" }}
-            aria-label={`${toAccount!.name} ${t("entry.amount")}`}
-          />
+          {/*
+            The pad, not a text field. This leg used to take digits through a raw input that
+            stripped anything but `[\d.,]` straight into an expression's `current` — no arithmetic,
+            no grouping, and the only amount in the app whose display disagreed with the one
+            directly above it.
+          */}
+          <div className="mt-2">
+            <AmountField
+              valueMinor={toAmountMinor}
+              currency={toAccount!.currency as Currency}
+              onChange={setToAmountMinor}
+              label={`${toAccount!.name} ${t("entry.amount")}`}
+            />
+          </div>
         </div>
       )}
     </>

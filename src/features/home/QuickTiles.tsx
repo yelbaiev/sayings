@@ -3,7 +3,6 @@ import { cn } from "~/lib/cn";
 import { Button } from "~/ui/Button";
 import { HoldButton } from "~/ui/HoldButton";
 import { CARD, HINT } from "~/ui/recipes";
-import { minorToMajor, parseMajorToMinor } from "@shared/money";
 import {
   parseTemplate,
   serialiseTemplate,
@@ -15,6 +14,8 @@ import { useApp } from "~/app/AppContext";
 import { newId, put, remove } from "~/db/mutations";
 import { useAccounts, useCategories, useLatestTransaction, useQuickTiles } from "~/db/queries";
 import { createPressGesture } from "~/lib/press-gesture";
+import { AmountField } from "~/features/entry/AmountField";
+import { useRepeatLast } from "~/features/entry/useRepeatLast";
 import { rateFor } from "~/lib/fx";
 import { formatMoney, todayIso } from "~/lib/format";
 import { Field, IconChip, Sheet } from "~/ui";
@@ -38,6 +39,7 @@ export function QuickTiles() {
   const expenseCategories = useCategories("expense");
   const incomeCategories = useCategories("income");
   const last = useLatestTransaction();
+  const repeatLast = useRepeatLast();
   const [editing, setEditing] = useState<QuickTile | "new" | null>(null);
   const [editMode, setEditMode] = useState(false);
 
@@ -94,6 +96,32 @@ export function QuickTiles() {
   return (
     <>
       <div className="flex gap-2 overflow-x-auto pb-1 [scrollbar-width:none]">
+        {/*
+          Repeat-last, as a tile.
+
+          The gesture for it — a long press on the add button — has existed since before the tiles
+          did, and nobody could find it: the string written for its label was referenced nowhere in
+          the app. That is the same reason the edit affordance beside these tiles exists as a
+          button, and the same fix. The gesture stays; this is a way in that can be seen.
+
+          First in the row, because "the same thing again" is the commonest entry of all, and it is
+          the tile that needs no setting up.
+        */}
+        {last && (
+          <button
+            type="button"
+            className={cn(TILE, "border-dashed")}
+            onClick={() => void repeatLast()}
+            aria-label={`${t("entry.repeatLast")} ${formatMoney(last.amount_minor, last.currency as Currency, locale)}`}
+          >
+            <span aria-hidden>↻</span>
+            <span>{t("entry.repeatLast")}</span>
+            <span className="sensitive text-muted-foreground tabular-nums">
+              {formatMoney(last.amount_minor, last.currency as Currency, locale)}
+            </span>
+          </button>
+        )}
+
         {resolved.map(({ tile, template }) => (
           <QuickTileButton
             key={tile.id}
@@ -265,12 +293,10 @@ export function QuickTileSheet({
    */
   const prefillCurrency: Currency =
     existing?.currency ?? ((last?.currency as Currency | undefined) ?? baseCurrency);
-  const [amount, setAmount] = useState(
-    existing
-      ? String(minorToMajor(existing.amount_minor, prefillCurrency))
-      : last
-        ? String(minorToMajor(last.amount_minor, prefillCurrency))
-        : "",
+  // Minor units throughout, so the prefill cannot be re-scaled by a currency it did not come from
+  // — the trap the comment above describes.
+  const [amountMinor, setAmountMinor] = useState<number | null>(
+    existing?.amount_minor ?? last?.amount_minor ?? null,
   );
   const [currency, setCurrency] = useState<Currency>(prefillCurrency);
   const [categoryId, setCategoryId] = useState(
@@ -289,13 +315,8 @@ export function QuickTileSheet({
   async function save() {
     // Each failure names its own field. A single shared message meant a missing category
     // reported itself as a missing amount, which is how this looked like an input bug.
-    let minor: number;
-    try {
-      minor = parseMajorToMinor(amount, currency);
-    } catch {
-      setError(t("import.warning.noAmount"));
-      return;
-    }
+    // The pad cannot produce anything unparseable, so the try/catch the text input needed is gone.
+    const minor = amountMinor ?? 0;
     if (minor <= 0) {
       setError(t("entry.needAmount"));
       return;
@@ -369,14 +390,14 @@ export function QuickTileSheet({
 
       <Field label={t("entry.amount")}>
         <div className="flex flex-wrap items-center gap-2">
-          <input
-            type="text"
-            inputMode="decimal"
-            value={amount}
-            onChange={(event) => setAmount(event.target.value)}
-            placeholder="0"
-            className="min-w-0 flex-1"
-          />
+          <span className="min-w-0 flex-1">
+            <AmountField
+              valueMinor={amountMinor}
+              currency={currency}
+              onChange={setAmountMinor}
+              label={t("entry.amount")}
+            />
+          </span>
           <select
             value={currency}
             onChange={(event) => setCurrency(event.target.value as Currency)}

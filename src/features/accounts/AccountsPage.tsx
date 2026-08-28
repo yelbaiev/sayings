@@ -1,10 +1,10 @@
 import type { Currency } from "@shared/currency";
-import { minorToMajor, parseMajorToMinor } from "@shared/money";
 import { ACCOUNT_TYPES, type Account } from "@shared/schema";
 import { useState } from "react";
 import { useApp } from "~/app/AppContext";
 import { newId, put } from "~/db/mutations";
 import { useAccounts, useBalances } from "~/db/queries";
+import { AmountField } from "~/features/entry/AmountField";
 import { IconButton } from "~/ui/Button";
 import { Amount, Chip, EmptyState, Field, FieldGroup, IconChip, Sheet } from "~/ui";
 import { Button } from "~/ui/Button";
@@ -157,11 +157,10 @@ function AccountSheet({
   const [type, setType] = useState<Account["type"]>(account?.type ?? "debit_card");
   // A new account starts in the household's own currency, which is what most accounts will be.
   const [currency, setCurrency] = useState<Currency>((account?.currency as Currency) ?? baseCurrency);
-  // Scaled by the account's own currency: /100 would show a yen balance at a hundredth of itself.
-  const [openingBalance, setOpeningBalance] = useState(
-    account
-      ? String(minorToMajor(account.opening_balance_minor, account.currency as Currency))
-      : "",
+  // Held in minor units, and the field scales it by the account's own currency — /100 would show
+  // a yen balance at a hundredth of itself.
+  const [openingBalance, setOpeningBalance] = useState<number | null>(
+    account?.opening_balance_minor ?? null,
   );
   const [icon, setIcon] = useState(account?.icon ?? "💳");
   const [color, setColor] = useState(account?.color ?? "#3E63DD");
@@ -177,15 +176,9 @@ function AccountSheet({
       return;
     }
 
-    let openingMinor = 0;
-    if (openingBalance.trim()) {
-      try {
-        openingMinor = parseMajorToMinor(openingBalance, currency);
-      } catch {
-        setError(t("import.warning.noAmount"));
-        return;
-      }
-    }
+    // An empty field is zero, not an error: most accounts are opened at nothing. The pad cannot
+    // produce anything unparseable, so the try/catch the text input needed is gone.
+    const openingMinor = openingBalance ?? 0;
 
     await put(
       "accounts",
@@ -246,12 +239,13 @@ function AccountSheet({
       </Field>
 
       <Field label={t("accounts.openingBalance")}>
-        <input
-          type="text"
-          inputMode="decimal"
-          value={openingBalance}
-          onChange={(event) => setOpeningBalance(event.target.value)}
-          placeholder="0"
+        {/* Typed off a statement, in the account's own currency — which is the currency chosen
+            directly above, so the field follows it. */}
+        <AmountField
+          valueMinor={openingBalance}
+          currency={currency}
+          onChange={setOpeningBalance}
+          label={t("accounts.openingBalance")}
         />
       </Field>
 

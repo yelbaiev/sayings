@@ -1,4 +1,4 @@
-import { fireEvent, screen, within } from "@testing-library/react";
+import { act, fireEvent, screen, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { describe, expect, it, vi } from "vitest";
 import type { Account, Category } from "@shared/schema";
@@ -320,6 +320,60 @@ describe("the empty amount field", () => {
 
     await userEvent.click(screen.getByRole("button", { name: "Назад" }));
     expect(shown()).toBe("");
+  });
+});
+
+describe("clearing the amount", () => {
+  const shown = () => screen.getByLabelText("Сумма").textContent ?? "";
+
+  it("deletes one character on a tap and wipes everything on a hold", async () => {
+    vi.useFakeTimers({ shouldAdvanceTime: true });
+    try {
+      open();
+      await userEvent.click(await screen.findByLabelText("Сумма"));
+      for (const digit of ["1", "2", "4", "0"]) {
+        await userEvent.click(screen.getByRole("button", { name: digit }));
+      }
+      expect(shown()).toMatch(/1\s*240/u);
+
+      // A tap takes one digit — the behaviour that must survive the hold being added.
+      const back = screen.getByRole("button", { name: "Назад" });
+      fireEvent.pointerDown(back);
+      fireEvent.pointerUp(back);
+      expect(shown()).toMatch(/^124\s*₴$/u);
+
+      // Held, it clears. Correcting a mistyped six-figure sum used to be one press per digit.
+      fireEvent.pointerDown(back);
+      // The clear lands from a timer, outside React's own event path — act() is what flushes it.
+      await act(async () => {
+        await vi.advanceTimersByTimeAsync(600);
+      });
+      expect(shown()).toBe("");
+      fireEvent.pointerUp(back);
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  it("does not clear when the finger leaves before the threshold", async () => {
+    vi.useFakeTimers({ shouldAdvanceTime: true });
+    try {
+      open();
+      await userEvent.click(await screen.findByLabelText("Сумма"));
+      await userEvent.click(screen.getByRole("button", { name: "7" }));
+      await userEvent.click(screen.getByRole("button", { name: "5" }));
+
+      const back = screen.getByRole("button", { name: "Назад" });
+      fireEvent.pointerDown(back);
+      fireEvent.pointerLeave(back);
+      await act(async () => {
+        await vi.advanceTimersByTimeAsync(900);
+      });
+      // The one delete from the press stands; the clear never fires.
+      expect(shown()).toMatch(/^7\s*₴$/u);
+    } finally {
+      vi.useRealTimers();
+    }
   });
 });
 

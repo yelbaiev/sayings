@@ -9,9 +9,10 @@ import { Button } from "~/ui/Button";
 import { CARD, LIST, PAGE, PAGE_TITLE, ROW_SUB, ROW_TITLE } from "~/ui/recipes";
 import { useRouter } from "~/app/router";
 import { useHideOnScrollDown } from "~/lib/useScrollDirection";
+import { runningBalances } from "~/lib/running-balance";
 import { newId, put, remove, restore } from "~/db/mutations";
 import {
-  useAccountBalance,
+  useAccountLedger,
   useAccounts,
   useCategories,
   useLookups,
@@ -80,8 +81,31 @@ export function HistoryPage() {
   });
 
   const hasFilters = Boolean(search || accountId || categoryId || memberId);
-  /* What the chosen card holds right now. Null unless one is chosen — see useAccountBalance. */
-  const selected = useAccountBalance(accountId);
+  /* The chosen card: what it holds now, and every row that touches it. Null unless one is chosen. */
+  const selected = useAccountLedger(accountId);
+
+  /*
+   * The balance after each row, when it can be read as a column.
+   *
+   * Shown only with a card chosen and nothing else narrowing the list. Every figure would still be
+   * *true* under a search or a category filter — it is the balance after that transaction, not a
+   * total of what is visible — but consecutive rows would no longer differ by the amount between
+   * them, and a column that cannot be checked by subtraction reads as broken even when it is right.
+   *
+   * Accumulated over all of the account's rows in date order, never over the visible slice.
+   */
+  const showRunning = Boolean(selected) && !search && !categoryId && !memberId;
+  const running = useMemo(
+    () =>
+      showRunning && selected
+        ? runningBalances(
+            selected.account.id,
+            selected.account.opening_balance_minor,
+            selected.rows,
+          )
+        : null,
+    [showRunning, selected],
+  );
 
   // Imported rows live on accounts excluded from totals, which is what marks them as synthetic.
   const importedAccountIds = useMemo(
@@ -369,6 +393,7 @@ export function HistoryPage() {
                       <TransactionRow
                         transaction={row.transaction}
                         lookups={lookups}
+                        runningMinor={running?.get(row.transaction.id)}
                         selected={selection.has(row.transaction.id)}
                         onClick={() => {
                           // Once a selection is open, tapping toggles rather than edits, so

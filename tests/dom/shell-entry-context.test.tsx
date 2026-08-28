@@ -56,8 +56,15 @@ vi.mock("~/db/queries", () => ({
   useTransactionCount: () => 0,
   useBalances: () => [],
   // Mirrors the real hook's contract: a figure while a card is chosen, null otherwise.
-  useAccountBalance: (id?: string) =>
-    id ? { account: account(id, id === "acc_privat" ? "Приват" : "Моно"), native: 1_234_500, base: 1_234_500 } : null,
+  useAccountLedger: (id?: string) =>
+    id
+      ? {
+          account: account(id, id === "acc_privat" ? "Приват" : "Моно"),
+          native: 1_234_500,
+          base: 1_234_500,
+          rows: [],
+        }
+      : null,
   useAccount: () => undefined,
 }));
 
