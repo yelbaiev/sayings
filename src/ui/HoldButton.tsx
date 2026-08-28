@@ -108,6 +108,9 @@ export function HoldButton({
       type="button"
       data-slot="hold-button"
       data-holding={holding || undefined}
+      /* The fill below *is* this button's press feedback, and it has to run for the full HOLD_MS.
+         A 200ms flash over the top would read as the hold having finished early. */
+      data-press-flash="off"
       className={cn(
         buttonVariants({ variant: "danger", size, block: block || undefined }),
         "relative isolate touch-none select-none overflow-hidden [-webkit-touch-callout:none]",

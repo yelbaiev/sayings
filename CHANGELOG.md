@@ -1,5 +1,14 @@
 # Changelog
 
+## Version 1.0.6
+
+- Added: every button, chip, tab and tappable row in the app now flashes when pressed, the way the
+  keypad keys already did. `:active` only lasts as long as the finger is down, which on a quick tap
+  is no feedback at all
+- Removed: the haptic feedback. iOS gives a web page no route to one — no Vibration API in WebKit,
+  and Core Haptics is native-only — and the hidden-switch workaround did nothing on the phone this
+  is used from. It was tried, measured and taken out rather than left in doing nothing
+
 ## Version 1.0.5
 
 - Changed: the iOS haptic fallback fires through a label rather than clicking the hidden switch

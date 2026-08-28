@@ -185,6 +185,9 @@ export function Shell({ children }: { children: ReactNode }) {
             "min-[900px]:font-semibold min-[900px]:shadow-none",
           )}
           aria-label={t("nav.add")}
+          /* Its own press animation lives in `active:scale-95` above, and the gesture machine owns
+             what a press here means. The app-wide flash would animate the same transform. */
+          data-press-flash="off"
           // The only place the shortcuts are discoverable, and it costs nothing.
           title={t("nav.addShortcuts")}
           onPointerDown={() => pressGesture.down()}

@@ -246,6 +246,50 @@
   }
 }
 
+/* ------------------------------------------------------------------------- press flash */
+
+/*
+ * What a control does to say a press landed, everywhere in the app. Driven by one delegated
+ * listener — see src/lib/press-flash.ts, which explains why it is not a prop on every component.
+ *
+ * An animation rather than `:active`, because `:active` lasts exactly as long as the finger is
+ * down: a few milliseconds on a quick tap, which is no feedback at all. This plays to the end
+ * whether the press was a jab or a hold.
+ *
+ * The tint is the foreground colour at 16%, laid over whatever the control's own background is by
+ * an inset shadow — which paints above the background and below the label, so nothing becomes
+ * unreadable mid-flash. One rule therefore covers a card, a list row, a filled primary button and
+ * both themes: in dark mode the foreground is near-white and the same tint lightens instead of
+ * darkening. A per-variant colour for each of those would be a dozen rules that drift apart.
+ */
+@keyframes press-flash {
+  from {
+    box-shadow: inset 0 0 0 999px color-mix(in oklab, var(--foreground) 16%, transparent);
+  }
+}
+
+/*
+ * The same tint with a squeeze, for controls that read as objects: buttons, icon buttons, chips.
+ * Rows are deliberately left out — a full-width row shrinking by 3% looks like a rendering bug,
+ * where a button doing it looks pressed.
+ */
+@keyframes press-flash-squeeze {
+  from {
+    box-shadow: inset 0 0 0 999px color-mix(in oklab, var(--foreground) 16%, transparent);
+    transform: scale(0.97);
+  }
+}
+
+.press-flash {
+  animation: press-flash 200ms ease-out;
+}
+
+[data-slot="button"].press-flash,
+[data-slot="icon-button"].press-flash,
+[data-slot="chip"].press-flash {
+  animation-name: press-flash-squeeze;
+}
+
 /* ----------------------------------------------------------------------------- privacy */
 
 /*
@@ -292,6 +336,13 @@
 @media (prefers-reduced-motion: reduce) {
   .keypad__key--flash {
     animation-name: keypad-press-still;
+  }
+
+  /* The tint stays — it is the feedback, not the motion. Only the squeeze goes. */
+  [data-slot="button"].press-flash,
+  [data-slot="icon-button"].press-flash,
+  [data-slot="chip"].press-flash {
+    animation-name: press-flash;
   }
 
   .collapsible {

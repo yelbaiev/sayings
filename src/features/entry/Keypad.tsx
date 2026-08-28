@@ -10,7 +10,7 @@ import {
   type Expression,
 } from "~/lib/calc";
 import { decimalSeparator } from "~/lib/format";
-import { tapFeedback } from "~/lib/haptics";
+import { flash } from "~/lib/press-flash";
 
 /**
  * The custom numeric pad.
@@ -28,29 +28,26 @@ import { tapFeedback } from "~/lib/haptics";
  * that appeared only after an operator had been pressed, which meant × and − were invisible until you
  * already knew they existed.
  *
- * Keys fire on pointer *down* and give their own feedback — a colour flash and, where the platform
- * allows it, a haptic tick. A pad that waits for the finger to lift before doing anything reads as
- * slow at the speed an amount is actually typed, and one that does nothing visible until the number
- * above changes reads as a dropped press. See `flash` below and `~/lib/haptics`.
+ * Keys fire on pointer *down* and flash as they fire. A pad that waits for the finger to lift
+ * before doing anything reads as slow at the speed an amount is actually typed, and one that does
+ * nothing visible until the number above changes reads as a dropped press.
+ *
+ * The flash is all the feedback there is: iOS has no route to a haptic from a web page — no
+ * Vibration API in WebKit, and Core Haptics is native-only — and the hidden-switch trick that
+ * plays the system tap on some builds did nothing on the phone this app is used from. It was
+ * tried, it was measured, and it came out. See CHANGELOG 1.0.2 through 1.0.6.
  *
  * There is no save key. Saving is a button above the pad that is present whether or not the pad is
  * open, because two ways to commit — one of which appears and disappears — is two things to learn and
  * one of them is always missing.
  */
-const FLASH_CLASS = "keypad__key--flash";
-
-/**
- * Replays the press animation on one key.
- *
- * The class has to come off and go back on with a layout read between: without the read the
- * browser coalesces the two mutations into no change at all, and the second press of the same key
- * — every "00", every double-tapped backspace — would show nothing.
+/*
+ * The pad's own flash, louder than the app-wide one: a key inverts to the primary colour where a
+ * row or a button only takes a tint. A 56px target pressed without being looked at can carry that,
+ * and a full-width list row cannot. The `data-press-flash="off"` on the pad below is what keeps the
+ * general listener from adding its animation on top of this one — two animations, one `transform`.
  */
-function flash(element: HTMLElement): void {
-  element.classList.remove(FLASH_CLASS);
-  void element.offsetWidth;
-  element.classList.add(FLASH_CLASS);
-}
+const FLASH_CLASS = "keypad__key--flash";
 
 export function Keypad({
   expression,
@@ -83,8 +80,7 @@ export function Keypad({
        * loses one.
        */
       onPointerDown={(event) => {
-        flash(event.currentTarget);
-        tapFeedback();
+        flash(event.currentTarget, FLASH_CLASS);
         act();
       }}
       /*
@@ -94,7 +90,7 @@ export function Keypad({
        */
       onClick={(event) => {
         if (event.detail !== 0) return;
-        flash(event.currentTarget);
+        flash(event.currentTarget, FLASH_CLASS);
         act();
       }}
       onAnimationEnd={(event) => event.currentTarget.classList.remove(FLASH_CLASS)}
@@ -114,7 +110,7 @@ export function Keypad({
     });
 
   return (
-    <div className="keypad">
+    <div className="keypad" data-press-flash="off">
       {/* Column order matters to the grid's auto-flow: each row is operator, three digits, and on
           the first row the equals key, which spans the rest. */}
       {operator("+", t("entry.add"))}
