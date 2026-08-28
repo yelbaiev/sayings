@@ -33,3 +33,23 @@ export function toBaseAtLatest(
   const scaled = minor * rate;
   return Math.sign(scaled) * Math.round(Math.abs(scaled));
 }
+
+/**
+ * Base currency to another, at today's rate. Null when no rate is held for it.
+ *
+ * The mirror of `toBaseAtLatest`, and the reason both exist rather than one with a flag: the map
+ * holds base-per-quote, so one multiplies and the other divides, and a single function taking a
+ * direction is a function whose call sites read the same whichever way they are wrong.
+ */
+export function fromBaseAtLatest(
+  minor: number,
+  currency: Currency,
+  rates: Map<string, number>,
+  base: Currency,
+): number | null {
+  if (currency === base) return minor;
+  const rate = rates.get(currency);
+  if (!rate) return null;
+  const scaled = minor / rate;
+  return Math.sign(scaled) * Math.round(Math.abs(scaled));
+}

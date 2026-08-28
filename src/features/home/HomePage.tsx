@@ -8,7 +8,15 @@ import { useBalances, useLookups, useTransactions } from "~/db/queries";
 import { getDevicePrefs } from "~/db/dexie";
 import { toBaseAtLatest, useLatestRates } from "~/db/useRates";
 import { addMonths, dayOfMonth, formatMoney, monthOf, todayIso } from "~/lib/format";
-import { Amount, EmptyState, IconChip, Progress, Toast, type ToastSpec } from "~/ui";
+import {
+  Amount,
+  EmptyState,
+  IconChip,
+  Progress,
+  SecondaryAmount,
+  Toast,
+  type ToastSpec,
+} from "~/ui";
 import { Button } from "~/ui/Button";
 import { cn } from "~/lib/cn";
 import { CARD, LIST, PAGE, SECTION_TITLE } from "~/ui/recipes";
@@ -229,7 +237,10 @@ export function HomePage() {
                     <strong>{t("home.grandTotal")}</strong>
                     <span className="text-muted-foreground"> · {t("home.grandTotalHint")}</span>
                   </span>
-                  <Amount minor={totals.grand} currency={baseCurrency} tone="neutral" />
+                  <span className="text-right">
+                    <Amount minor={totals.grand} currency={baseCurrency} tone="neutral" />
+                    <SecondaryAmount minor={totals.grand} />
+                  </span>
                 </div>
               )}
             </div>

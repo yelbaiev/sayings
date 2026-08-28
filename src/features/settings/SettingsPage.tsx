@@ -13,7 +13,7 @@ import { hardReload } from "~/lib/hard-reload";
 import { formatBytes, formatDate, formatRelativeTime } from "~/lib/format";
 import { Avatar, Field, FieldGroup, Segmented, Toast, type ToastSpec } from "~/ui";
 import { BaseChangeSheet } from "./BaseChangeSheet";
-import { BaseCurrencyField, EnabledCurrenciesField } from "./CurrencyPicker";
+import { BaseCurrencyField, EnabledCurrenciesField, currencyName } from "./CurrencyPicker";
 import { Button } from "~/ui/Button";
 import { cn } from "~/lib/cn";
 import { CARD, HINT, LIST, PAGE, PAGE_TITLE, ROW, ROW_SUB, ROW_TITLE, SECTION_TITLE } from "~/ui/recipes";
@@ -25,7 +25,19 @@ const APP_VERSION = __APP_VERSION__;
 
 
 export function SettingsPage() {
-  const { t, me, locale, setLocale, theme, setTheme, baseCurrency, enabledCurrencies, saveCurrencies } =
+  const {
+    t,
+    me,
+    locale,
+    setLocale,
+    theme,
+    setTheme,
+    baseCurrency,
+    enabledCurrencies,
+    saveCurrencies,
+    secondaryCurrency,
+    setSecondaryCurrency,
+  } =
     useApp();
   const { navigate } = useRouter();
   const members = useMembers();
@@ -205,6 +217,29 @@ export function SettingsPage() {
               void saveCurrencies(next, withBase);
             }}
           />
+          {/* Right under the base, because the pair is the whole point — and worded so the
+              difference between them is unmissable: one re-prices the ledger, the other repeats a
+              figure. */}
+          <Field label={t("settings.secondCurrency")} hint={t("settings.secondCurrencyHint")}>
+            <select
+              value={secondaryCurrency ?? ""}
+              onChange={(event) =>
+                setSecondaryCurrency(
+                  event.target.value === "" ? null : (event.target.value as Currency),
+                )
+              }
+            >
+              <option value="">{t("settings.secondCurrencyOff")}</option>
+              {enabled
+                .filter((code) => code !== baseCurrency)
+                .map((code) => (
+                  <option key={code} value={code}>
+                    {code} · {currencyName(code, locale)}
+                  </option>
+                ))}
+            </select>
+          </Field>
+
           <EnabledCurrenciesField
             base={baseCurrency}
             value={enabled}

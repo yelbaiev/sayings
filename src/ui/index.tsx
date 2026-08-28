@@ -19,6 +19,7 @@ import { Empty, EmptyContent, EmptyMedia, EmptyTitle } from "~/ui/empty";
 import { Field as ShadField, FieldDescription, FieldLabel } from "~/ui/field";
 import { ToggleGroup, ToggleGroupItem } from "~/ui/toggle-group";
 import { formatMoney, type MoneyFormatOptions } from "~/lib/format";
+import { fromBaseAtLatest, useLatestRates } from "~/db/useRates";
 
 /* ------------------------------------------------------------------------------ Amount */
 
@@ -63,6 +64,44 @@ export function Amount({
   );
 
   return <span className={classes}>{formatMoney(minor, currency, locale, options)}</span>;
+}
+
+/**
+ * The same total, said again in the currency the reader thinks in: `≈ 10 500 €`.
+ *
+ * Renders nothing at all when no second currency is chosen, when it is the base one, or when no
+ * rate is held for it — a household that has never seen a euro rate gets silence rather than a
+ * figure converted at 1:1, which would be a wrong number wearing the right symbol.
+ *
+ * **Totals only.** Beside every row of a list this would be noise, and list rows already carry
+ * their own account's currency.
+ *
+ * The `≈` is doing work. This is today's rate applied to whatever figure it is given, so for a
+ * current one — a balance, net worth — it is simply true, and for a historical one it says "what
+ * that is worth today" rather than "what it was worth then". Consistency across every screen beats
+ * being cleverer on some of them; the sign is what stops the second reading from looking like the
+ * first.
+ */
+export function SecondaryAmount({
+  minor,
+  className,
+}: {
+  /** In the household's base currency, which is what every total in this app is in. */
+  minor: Minor;
+  className?: string;
+}) {
+  const { locale, baseCurrency, secondaryCurrency } = useApp();
+  const rates = useLatestRates(baseCurrency);
+
+  if (!secondaryCurrency || secondaryCurrency === baseCurrency) return null;
+  const converted = fromBaseAtLatest(minor, secondaryCurrency, rates, baseCurrency);
+  if (converted === null) return null;
+
+  return (
+    <span className={cn("sensitive block text-xs text-muted-foreground", className)}>
+      ≈ {formatMoney(converted, secondaryCurrency, locale)}
+    </span>
+  );
 }
 
 /* ------------------------------------------------------------------------------- chips */

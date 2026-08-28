@@ -43,6 +43,14 @@ export interface AppContextValue {
   /** What an account may be denominated in. Sorted, deduplicated, and always includes the base. */
   enabledCurrencies: Currency[];
   /**
+   * A second currency to repeat every total in, or null when off.
+   *
+   * Display only. It never reaches a stored row, which is what keeps it clear of `baseCurrency`
+   * above — that one decides what money *means* here and re-prices the ledger when it changes.
+   */
+  secondaryCurrency: Currency | null;
+  setSecondaryCurrency: (next: Currency | null) => void;
+  /**
    * Saves the currency configuration and updates it here on success.
    *
    * Held in this provider rather than in the caller's own state because two screens change it and
@@ -94,6 +102,9 @@ export function AppProvider({ me, children }: { me: Me; children: React.ReactNod
   }, []);
 
   const [theme, setThemeState] = useState<DevicePrefs["theme"]>("system");
+  /* Off until the stored preference is read. A currency that flickered in on load would move every
+     total on the screen a frame after it settled. */
+  const [secondaryCurrency, setSecondaryState] = useState<Currency | null>(null);
 
   // The member row is mirrored locally, so a language change on the other device shows up
   // here without a refresh. Falls back to the value the API handed us on first load.
@@ -101,7 +112,13 @@ export function AppProvider({ me, children }: { me: Me; children: React.ReactNod
   const locale = (member?.locale as Locale | undefined) ?? me.locale;
 
   useEffect(() => {
-    void getDevicePrefs().then((prefs) => setThemeState(prefs.theme));
+    void getDevicePrefs().then((prefs) => {
+      setThemeState(prefs.theme);
+      // Validated, not asserted: it crossed no network but it did cross a schema change, and an
+      // unrecognised code would index the minor-unit table with undefined and render NaN.
+      const stored = prefs.secondaryCurrency ?? "";
+      setSecondaryState(isCurrency(stored) ? stored : null);
+    });
   }, []);
 
   useEffect(() => {
@@ -117,6 +134,11 @@ export function AppProvider({ me, children }: { me: Me; children: React.ReactNod
   const setTheme = useCallback((next: DevicePrefs["theme"]) => {
     setThemeState(next);
     void setDevicePrefs({ theme: next });
+  }, []);
+
+  const setSecondaryCurrency = useCallback((next: Currency | null) => {
+    setSecondaryState(next);
+    void setDevicePrefs({ secondaryCurrency: next });
   }, []);
 
   const setLocale = useCallback(
@@ -149,8 +171,21 @@ export function AppProvider({ me, children }: { me: Me; children: React.ReactNod
       theme,
       setTheme,
       setLocale,
+      secondaryCurrency,
+      setSecondaryCurrency,
     }),
-    [me, member, locale, currencies, saveCurrencies, theme, setTheme, setLocale],
+    [
+      me,
+      member,
+      locale,
+      currencies,
+      saveCurrencies,
+      theme,
+      setTheme,
+      setLocale,
+      secondaryCurrency,
+      setSecondaryCurrency,
+    ],
   );
 
   return <AppContext.Provider value={value}>{children}</AppContext.Provider>;

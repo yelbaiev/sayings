@@ -24,7 +24,7 @@ import { addMonths, formatAmount, formatMonth, formatMonthShort, monthOf, todayI
 import { cn } from "~/lib/cn";
 import { Button } from "~/ui/Button";
 import { CARD, LIST, PAGE_TITLE, ROW, ROW_SUB, ROW_TITLE } from "~/ui/recipes";
-import { Amount, Chip, EmptyState, IconChip, Segmented, Sheet } from "~/ui";
+import { Amount, Chip, EmptyState, IconChip, SecondaryAmount, Segmented, Sheet } from "~/ui";
 
 type ReportTab = "matrix" | "month" | "netWorth" | "cashflow" | "byMember";
 
@@ -322,12 +322,18 @@ export function ReportsPage() {
             </div>
             <div className="mt-1.5 flex items-center justify-between gap-3">
               <span className="text-xs text-muted-foreground">{t("reports.profit")}</span>
-              <Amount
-                minor={overview.net}
-                currency={baseCurrency}
-                tone={overview.net < 0 ? "expense" : "income"}
-                signed
-              />
+              {/* Only the net carries the second currency here. Three of them in a stack of three
+                  rows is a column of conversions nobody reads; the line worth repeating is the one
+                  that says whether the month came out ahead. */}
+              <span className="text-right">
+                <Amount
+                  minor={overview.net}
+                  currency={baseCurrency}
+                  tone={overview.net < 0 ? "expense" : "income"}
+                  signed
+                />
+                <SecondaryAmount minor={overview.net} />
+              </span>
             </div>
           </div>
 

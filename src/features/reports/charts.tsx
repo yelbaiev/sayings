@@ -4,7 +4,7 @@ import type { Minor } from "@shared/money";
 import { useApp } from "~/app/AppContext";
 import { cn } from "~/lib/cn";
 import { formatAmount, formatMoney, formatMonthShort } from "~/lib/format";
-import { Amount } from "~/ui";
+import { Amount, SecondaryAmount } from "~/ui";
 import { CARD, SECTION_TITLE } from "~/ui/recipes";
 
 /**
@@ -351,6 +351,7 @@ export function CashflowChart({
                 size="hero"
                 signed
               />
+              <SecondaryAmount minor={point.net} />
               <span className="block text-xs text-muted-foreground">
                 {formatMonthShort(point.period, locale)} ·{" "}
                 <span className="sensitive">
@@ -571,6 +572,7 @@ export function TrendChart({
             tone="neutral"
             size="hero"
           />
+          <SecondaryAmount minor={(shown ?? last)?.total ?? 0} />
           {/*
             The change since the start of the range, beside the month. Scrubbing a net-worth line is
             rarely about the figure on its own — it is about whether it is above or below where the
@@ -811,6 +813,7 @@ export function DonutChart({
         <div className="pointer-events-none absolute inset-0 flex flex-col items-center justify-center px-10 text-center">
           <span className="text-xs text-muted-foreground">{selected ? selected.label : label}</span>
           <Amount minor={centreValue} currency={currency} tone="neutral" size="hero" />
+          <SecondaryAmount minor={centreValue} />
           <span className="text-xs text-muted-foreground">
             {selected ? `${Math.round((selected.value / sum) * 100)}%` : caption}
           </span>

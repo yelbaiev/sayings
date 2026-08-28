@@ -1,5 +1,13 @@
 # Changelog
 
+## Version 1.3.1
+
+- Added: a second currency in Settings. Every total is then repeated in it — `463 967 ₴ ≈ 10 310 €`
+  — on the home screen, net worth, the month's result and the category donut
+- The second currency changes nothing but what is drawn: no transaction is re-priced and nothing is
+  stored differently, unlike the reporting currency above it. It is per device, like the theme, and
+  a currency with no rate held shows nothing rather than a figure converted at 1:1
+
 ## Version 1.3.0
 
 - Added: a calendar of the app's own for picking a date on a desktop. The hidden native input gave

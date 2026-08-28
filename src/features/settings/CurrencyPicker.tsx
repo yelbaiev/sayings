@@ -16,7 +16,7 @@ import { Chip, Field, FieldGroup } from "~/ui";
  */
 
 /** "Euro", "євро", "японский иена" — whatever the reader's own language calls it. */
-function currencyName(code: Currency, locale: Locale): string {
+export function currencyName(code: Currency, locale: Locale): string {
   try {
     return new Intl.DisplayNames([locale], { type: "currency" }).of(code) ?? code;
   } catch {

@@ -80,6 +80,17 @@ export interface DevicePrefs {
    * undefined once and see the intro — which is the intended behaviour, not a migration problem.
    */
   introSeen: boolean;
+  /**
+   * A second currency to say every total in, beside the base one. Null when off, which is the
+   * default.
+   *
+   * A *display* preference, deliberately kept away from `households.base_currency`: the base
+   * re-prices every stored transaction when it changes and has its own sheet full of warnings,
+   * while this changes nothing but what is drawn. Per device, like the theme — the cost being that
+   * setting it on the phone does not set it on the laptop. A column on `members` would sync and
+   * would mean a migration; worth it if that annoyance bites, not worth it first.
+   */
+  secondaryCurrency: string | null;
 }
 
 export class SayFinanceDb extends Dexie {
@@ -152,6 +163,7 @@ export async function getDevicePrefs(): Promise<DevicePrefs> {
       lastAccountByCategory: {},
       installPromptSeen: false,
       introSeen: false,
+      secondaryCurrency: null,
     }
   );
 }
