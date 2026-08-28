@@ -61,7 +61,6 @@ vi.mock("~/db/queries", () => ({
       ? {
           account: account(id, id === "acc_privat" ? "Приват" : "Моно"),
           native: 1_234_500,
-          base: 1_234_500,
           rows: [],
         }
       : null,

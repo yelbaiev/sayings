@@ -156,10 +156,16 @@ export function useLatestTransaction(): Transaction | undefined {
 
 export interface AccountBalance {
   account: Account;
-  /** In the account's own currency. */
+  /**
+   * In the account's own currency, which is the only unit an account has.
+   *
+   * There is deliberately no base-currency figure here. There used to be, and it was the native
+   * amount copied under another name — every caller that trusted it would have added euro to
+   * hryvnia at 1:1. Converting needs today's rate, which is an async read, so the screens that
+   * total across accounts do it themselves: `useLatestRates` plus `toBaseAtLatest`, which return
+   * null for a currency with no rate rather than guessing at one.
+   */
   native: Minor;
-  /** Converted to the household base currency for totals. */
-  base: Minor;
 }
 
 /**
@@ -198,13 +204,7 @@ export function computeBalances(
 
   return accounts.map((account) => {
     const amount = native.get(account.id) ?? 0;
-    return {
-      account,
-      native: amount,
-      // Balances are a *current* figure, so today's rate is the right one — unlike a
-      // historical report, which must use each transaction's own snapshot.
-      base: amount,
-    };
+    return { account, native: amount };
   });
 }
 

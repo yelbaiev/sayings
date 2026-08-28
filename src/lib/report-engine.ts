@@ -201,14 +201,30 @@ export interface NetWorthPoint {
   period: string;
   /** Per-currency native totals, so a UAH swing is not confused with a EUR one. */
   byCurrency: Map<string, Minor>;
+  /** Every currency added together, in the household's base currency. */
   total: Minor;
+  /** Currencies held but not converted, because no rate was available. Empty in the normal case. */
+  missing: string[];
 }
 
 /**
- * Account balances at the end of each period.
+ * Account balances at the end of each period, converted into one currency.
  *
  * Cumulative: each point carries every movement up to that date, plus opening balances. That
  * makes a single pass over date-sorted transactions sufficient.
+ *
+ * **The total is every currency, converted — not the base-currency accounts alone.** It used to be
+ * `byCurrency.get(base)`, which silently dropped every euro and dollar account from the
+ * household's net worth: a household keeping half its savings in euro saw half its money.
+ *
+ * A *balance* cannot use the per-transaction snapshot rate the rest of this file relies on. It is a
+ * stock, not a flow — the sum of an opening balance and every movement since, and an opening
+ * balance was never a transaction and carries no rate. So the caller passes a rate map, and the
+ * app passes today's rates, the same ones the home screen totals with. One rate across every point
+ * also means the line's shape is balance movement rather than currency movement.
+ *
+ * A currency with no rate is named in `missing` rather than being quietly counted as base — the
+ * failure that would otherwise read as "our savings fell by a third overnight".
  */
 export function netWorthOverTime(
   transactions: Transaction[],
@@ -216,6 +232,7 @@ export function netWorthOverTime(
   periods: string[],
   period: Period,
   base: Currency,
+  rates: Map<string, number> = new Map(),
 ): NetWorthPoint[] {
   const included = accounts.filter((a) => a.exclude_from_totals === 0);
   const running = new Map<string, Minor>();
@@ -256,11 +273,25 @@ export function netWorthOverTime(
       byCurrency.set(currency, (byCurrency.get(currency) ?? 0) + amount);
     }
 
-    points.push({
-      period: bucket,
-      byCurrency,
-      total: byCurrency.get(base) ?? 0,
-    });
+    let total = 0;
+    const missing: string[] = [];
+    for (const [currency, amount] of byCurrency) {
+      if (currency === base) {
+        total += amount;
+        continue;
+      }
+      const rate = rates.get(currency);
+      if (!rate) {
+        // Not silently at 1:1. An unconverted euro balance added as hryvnia is a wrong number
+        // that looks like a right one.
+        if (amount !== 0) missing.push(currency);
+        continue;
+      }
+      const converted = amount * rate;
+      total += Math.sign(converted) * Math.round(Math.abs(converted));
+    }
+
+    points.push({ period: bucket, byCurrency, total, missing });
   }
 
   return points;

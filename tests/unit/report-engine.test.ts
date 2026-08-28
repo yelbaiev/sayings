@@ -286,6 +286,43 @@ describe("netWorthOverTime", () => {
     const points = netWorthOverTime([], withExcluded, ["2026-08"], "month", "UAH");
     expect(points[0]!.byCurrency.get("UAH")).toBe(1_000_000);
   });
+
+  it("counts every currency in the total, converted", () => {
+    /*
+     * The bug this replaces: the total was `byCurrency.get(base)`, so a household keeping half its
+     * savings in euro saw half its money — the other half was computed, held in the map, and
+     * dropped on the way out.
+     */
+    const rates = new Map([["EUR", 45]]);
+    const points = netWorthOverTime([], accounts, ["2026-08"], "month", "UAH", rates);
+
+    // ₴10 000,00 plus €500,00 at 45 = ₴22 500,00 more.
+    expect(points[0]!.byCurrency.get("UAH")).toBe(1_000_000);
+    expect(points[0]!.byCurrency.get("EUR")).toBe(50_000);
+    expect(points[0]!.total).toBe(1_000_000 + 50_000 * 45);
+    expect(points[0]!.missing).toEqual([]);
+  });
+
+  it("names a currency it cannot price rather than counting it as base", () => {
+    // Adding an unconverted euro balance to hryvnia at 1:1 is a wrong number that looks right.
+    const points = netWorthOverTime([], accounts, ["2026-08"], "month", "UAH", new Map());
+
+    expect(points[0]!.total).toBe(1_000_000);
+    expect(points[0]!.missing).toEqual(["EUR"]);
+  });
+
+  it("says nothing about a currency held at zero", () => {
+    // An emptied euro card must not raise a warning about a rate nobody needs.
+    const emptied = [account("mono", "UAH", 1_000_000), account("eur", "EUR", 0)];
+    const points = netWorthOverTime([], emptied, ["2026-08"], "month", "UAH", new Map());
+    expect(points[0]!.missing).toEqual([]);
+  });
+
+  it("rounds the converted figure half away from zero, like every other conversion here", () => {
+    const odd = [account("eur", "EUR", 1_005)];
+    const points = netWorthOverTime([], odd, ["2026-08"], "month", "UAH", new Map([["EUR", 1.5]]));
+    expect(points[0]!.total).toBe(1_508);
+  });
 });
 
 describe("cashflowByAccount", () => {

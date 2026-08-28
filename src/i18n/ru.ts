@@ -185,6 +185,7 @@ const ru: Dictionary = {
   "reports.empty": "Нет данных за этот период.",
   "reports.copyTable": "Копировать таблицу",
   "reports.showTable": "Таблица",
+  "reports.noRate": "Нет курса для {currencies} — эти счета не вошли в итог.",
   "reports.hideTable": "График",
   "reports.copied": "Скопировано",
   "reports.drillDown": "{category} за {period}",

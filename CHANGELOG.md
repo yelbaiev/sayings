@@ -1,5 +1,14 @@
 # Changelog
 
+## Version 1.1.2
+
+- Fixed: net worth counted only the accounts held in the household's base currency. Every euro and
+  dollar account was computed, held, and then dropped from the total — a household keeping half its
+  savings in euro saw half its money. Every currency is now converted at today's rate and included,
+  and a currency with no rate is named on screen instead of being quietly counted as base
+- Fixed: the per-account cashflow rows printed each card's own figures with the base currency's
+  symbol, so a euro card's €500 of inflow read as ₴500
+
 ## Version 1.1.1
 
 - Added: an income-against-expense chart on the cashflow tab — a column above the line for what came

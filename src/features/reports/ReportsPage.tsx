@@ -1,7 +1,9 @@
+import type { Currency } from "@shared/currency";
 import type { Transaction } from "@shared/schema";
 import { useMemo, useState } from "react";
 import { useApp } from "~/app/AppContext";
 import { useAccounts, useCategories, useLookups, useMembers, useTransactions } from "~/db/queries";
+import { useLatestRates } from "~/db/useRates";
 import { TransactionRow } from "~/features/transactions/TransactionRow";
 import { CashflowChart, TrendChart } from "./charts";
 import {
@@ -318,14 +320,17 @@ export function ReportsPage() {
               <IconChip icon={row.account.icon} color={row.account.color} />
               <span className="min-w-0 flex-1">
                 <span className={ROW_TITLE}>{row.account.name}</span>
+                {/* The account's own currency, not the base one. These figures are that card's
+                    movements, summed natively — printing a euro card's €500 with a ₴ beside it
+                    was two different units on one line. */}
                 <span className={cn(ROW_SUB, "sensitive")}>
-                  +{formatAmount(row.inflow, baseCurrency, locale)} · −
-                  {formatAmount(row.outflow, baseCurrency, locale)}
+                  +{formatAmount(row.inflow, row.account.currency as Currency, locale)} · −
+                  {formatAmount(row.outflow, row.account.currency as Currency, locale)}
                 </span>
               </span>
               <Amount
                 minor={row.net}
-                currency={row.account.currency as never}
+                currency={row.account.currency as Currency}
                 tone={row.net < 0 ? "expense" : "income"}
                 signed
               />
@@ -382,9 +387,13 @@ function NetWorthReport({
   to: string;
 }) {
   const { t, locale, baseCurrency } = useApp();
+  /* Today's rates, the same ones the home screen totals with — a balance is a current position and
+     has no per-transaction rate to fall back on. See netWorthOverTime. */
+  const rates = useLatestRates(baseCurrency);
   const periods = periodRange(from, to, "month");
-  const points = netWorthOverTime(transactions, accounts, periods, "month", baseCurrency);
+  const points = netWorthOverTime(transactions, accounts, periods, "month", baseCurrency, rates);
   const latest = points[points.length - 1];
+  const missing = latest?.missing ?? [];
 
   return (
     <>
@@ -393,6 +402,14 @@ function NetWorthReport({
         currency={baseCurrency}
         title={t("reports.netWorth")}
       />
+
+      {/* Named, not hidden. A total that quietly leaves out the euro accounts is the bug this
+          release fixes; a total that says which currency it could not price is not the same thing. */}
+      {missing.length > 0 && (
+        <div className={cn(CARD, "mt-3 border-warning")} role="status">
+          <div className="text-xs">{t("reports.noRate", { currencies: missing.join(", ") })}</div>
+        </div>
+      )}
 
       {latest && latest.byCurrency.size > 1 && (
         <div className={cn(LIST, "mt-4")}>
