@@ -11,6 +11,15 @@ import { CashflowChart, TrendChart } from "~/features/reports/charts";
  * deterministic and the assertions about it meaningful.
  */
 
+/**
+ * The line is a monotone cubic path, so its data points are the `M` and the end of every `C`.
+ * The control points in between are not values anyone typed.
+ */
+const dataPoints = (d: string) =>
+  [...d.matchAll(/(-?[\d.]+),(-?[\d.]+)/g)]
+    .map((m) => ({ x: Number(m[1]), y: Number(m[2]) }))
+    .filter((_, i) => i % 3 === 0);
+
 const trend = [
   { period: "2026-01", total: 40_000_000 },
   { period: "2026-02", total: 44_000_000 },
@@ -44,8 +53,8 @@ describe("the net-worth line", () => {
     const { container } = renderInApp(
       <TrendChart points={trend} currency="UAH" title="Чистые активы" />,
     );
-    const d = container.querySelector("path")?.getAttribute("d") ?? "";
-    const ys = [...d.matchAll(/[ML][\d.]+,([\d.]+)/g)].map((m) => Number(m[1]));
+    const d = container.querySelector('path[fill="none"]')?.getAttribute("d") ?? "";
+    const ys = dataPoints(d).map((point) => point.y);
 
     expect(ys).toHaveLength(3);
     // The climb uses the height it has: the first point sits near the bottom of the plot and the
@@ -102,6 +111,41 @@ describe("the net-worth line", () => {
     // A crosshair down the plot, and a marker sitting on the line.
     expect(container.querySelectorAll("line")).toHaveLength(1);
     expect(container.querySelectorAll("circle").length).toBeGreaterThan(1);
+  });
+
+  it("washes under the curve without drawing a second baseline", () => {
+    const { container } = renderInApp(
+      <TrendChart points={trend} currency="UAH" title="Чистые активы" />,
+    );
+    const wash = container.querySelector('path[fill^="url("]');
+    expect(wash).toBeTruthy();
+    // It closes down to the plot floor, so the fill has an area rather than being a fat line.
+    expect(wash!.getAttribute("d")).toMatch(/Z$/u);
+    expect(container.querySelector("linearGradient")).toBeTruthy();
+  });
+
+  it("curves without inventing a dip the data never had", () => {
+    /*
+     * The reason the smoothing is monotone cubic rather than a plain spline. A spline through three
+     * rising balances overshoots on the way, drawing a fall the household never had — on a chart of
+     * savings that is not a cosmetic difference. Every control point must stay inside the interval
+     * its neighbours define.
+     */
+    const rising = [
+      { period: "2026-01", total: 100_000 },
+      { period: "2026-02", total: 100_500 },
+      { period: "2026-03", total: 400_000 },
+    ];
+    const { container } = renderInApp(
+      <TrendChart points={rising} currency="UAH" title="Чистые активы" />,
+    );
+    const d = container.querySelector('path[fill="none"]')?.getAttribute("d") ?? "";
+    const ys = [...d.matchAll(/(-?[\d.]+),(-?[\d.]+)/g)].map((m) => Number(m[2]));
+
+    // Every coordinate the curve touches, controls included, sits within the plotted range.
+    const points = dataPoints(d).map((point) => point.y);
+    expect(Math.min(...ys)).toBeGreaterThanOrEqual(Math.min(...points) - 0.001);
+    expect(Math.max(...ys)).toBeLessThanOrEqual(Math.max(...points) + 0.001);
   });
 
   it("walks the series with the arrow keys", () => {

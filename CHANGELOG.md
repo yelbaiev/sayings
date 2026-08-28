@@ -1,5 +1,13 @@
 # Changelog
 
+## Version 1.1.4
+
+- Changed: the net-worth line is a smooth curve with a fading wash beneath it, and the scrub cursor
+  glides between months instead of jumping. Readings stay snapped to real months — a monthly series
+  holds no figure for the 12th of April, and putting an invented one under a finger would be the
+  chart making numbers up
+- Added: the change since the start of the range, beside the month being read
+
 ## Version 1.1.3
 
 - Added: slide a finger along either chart and the figures follow it. The pointer is captured on

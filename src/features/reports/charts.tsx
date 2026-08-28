@@ -2,6 +2,7 @@ import { useEffect, useRef, useState, type ReactNode } from "react";
 import type { Currency } from "@shared/currency";
 import type { Minor } from "@shared/money";
 import { useApp } from "~/app/AppContext";
+import { cn } from "~/lib/cn";
 import { formatAmount, formatMoney, formatMonthShort } from "~/lib/format";
 import { Amount } from "~/ui";
 import { CARD, SECTION_TITLE } from "~/ui/recipes";
@@ -176,6 +177,52 @@ function Legend({ items }: { items: { color: string; label: string }[] }) {
   );
 }
 
+/**
+ * A smooth path through the points, using monotone cubic interpolation.
+ *
+ * Not Catmull-Rom, and the difference matters for money: a plain spline overshoots between points,
+ * so a curve drawn through three rising balances can dip below the lower one on its way — a fall
+ * the household never had, drawn on the chart. Monotone cubic (Fritsch–Carlson) is constructed so
+ * the curve never leaves the interval between neighbouring values, which is the only kind of
+ * smoothing a balance chart may have.
+ */
+function smoothPath(pts: { x: number; y: number }[]): string {
+  if (pts.length === 0) return "";
+  if (pts.length < 3) return pts.map((p, i) => `${i === 0 ? "M" : "L"}${p.x},${p.y}`).join(" ");
+
+  const n = pts.length;
+  const dx: number[] = [];
+  const slope: number[] = [];
+  for (let i = 0; i < n - 1; i++) {
+    dx[i] = pts[i + 1]!.x - pts[i]!.x;
+    slope[i] = (pts[i + 1]!.y - pts[i]!.y) / dx[i]!;
+  }
+
+  // Tangents. A sign change means a turning point, and its tangent is flat — that is the clamp
+  // that keeps the curve inside the data.
+  const m: number[] = [slope[0]!];
+  for (let i = 1; i < n - 1; i++) {
+    if (slope[i - 1]! * slope[i]! <= 0) {
+      m[i] = 0;
+    } else {
+      const w1 = 2 * dx[i]! + dx[i - 1]!;
+      const w2 = dx[i]! + 2 * dx[i - 1]!;
+      m[i] = (w1 + w2) / (w1 / slope[i - 1]! + w2 / slope[i]!);
+    }
+  }
+  m[n - 1] = slope[n - 2]!;
+
+  let d = `M${pts[0]!.x},${pts[0]!.y}`;
+  for (let i = 0; i < n - 1; i++) {
+    const third = dx[i]! / 3;
+    d +=
+      ` C${pts[i]!.x + third},${pts[i]!.y + m[i]! * third}` +
+      ` ${pts[i + 1]!.x - third},${pts[i + 1]!.y - m[i + 1]! * third}` +
+      ` ${pts[i + 1]!.x},${pts[i + 1]!.y}`;
+  }
+  return d;
+}
+
 /** A column with its far end rounded and its baseline end square, per the mark spec. */
 function columnPath(x: number, width: number, zeroY: number, height: number, up: boolean): string {
   const radius = Math.min(4, width / 2, height);
@@ -316,6 +363,7 @@ export function CashflowChart({
             thing that says which one is being read. */}
         {active !== null && (
           <rect
+            className="chart-cursor"
             x={active * slot}
             y={0}
             width={slot}
@@ -459,10 +507,18 @@ export function TrendChart({
     points.length === 1 ? width / 2 : inset + (index / (points.length - 1)) * (width - inset * 2);
   const yOf = (value: Minor) => inset + (1 - (value - low) / span) * (plot - inset * 2);
 
-  const path = points.map((point, i) => `${i === 0 ? "M" : "L"}${xOf(i)},${yOf(point.total)}`).join(" ");
+  const plotted = points.map((point, i) => ({ x: xOf(i), y: yOf(point.total) }));
+  const path = smoothPath(plotted);
+  /* A wash under the curve, at the tenth-opacity the mark spec allows. It is what makes the line
+     read as a quantity rather than as a squiggle, and it is where the eye goes while scrubbing. */
+  const area =
+    plotted.length > 1
+      ? `${path} L${plotted[plotted.length - 1]!.x},${plot} L${plotted[0]!.x},${plot} Z`
+      : "";
   const last = points[points.length - 1];
   const shown = active !== null ? points[active] : undefined;
   const zeroInside = low < 0 && high > 0;
+  const delta = ((shown ?? last)?.total ?? 0) - (points[0]?.total ?? 0);
 
   const table = (
     <table className="matrix">
@@ -501,8 +557,21 @@ export function TrendChart({
             tone="neutral"
             size="hero"
           />
+          {/*
+            The change since the start of the range, beside the month. Scrubbing a net-worth line is
+            rarely about the figure on its own — it is about whether it is above or below where the
+            year began, which is a subtraction nobody should be doing in their head.
+          */}
           <span className="block text-xs text-muted-foreground">
             {formatMonthShort((shown ?? last)?.period ?? "", locale)}
+            {delta !== 0 && (
+              <>
+                {" · "}
+                <span className={cn("sensitive", delta > 0 ? "text-income" : "text-expense")}>
+                  {formatMoney(delta, currency, locale, { signed: true })}
+                </span>
+              </>
+            )}
           </span>
         </div>
       }
@@ -528,11 +597,25 @@ export function TrendChart({
           />
         )}
 
-        {/* The finger's position on the line: a hairline down the plot and a marker on the curve.
-            Without them the only thing that moved while scrubbing was the text above, and the chart
-            gave no sign which point it was reading. */}
+        {area && (
+          <>
+            {/* The wash fades out downward rather than ending on a hard horizontal edge, which
+                reads as a second baseline the chart does not have. */}
+            <defs>
+              <linearGradient id="net-worth-wash" x1="0" y1="0" x2="0" y2="1">
+                <stop offset="0%" stopColor="var(--transfer)" stopOpacity={0.16} />
+                <stop offset="100%" stopColor="var(--transfer)" stopOpacity={0} />
+              </linearGradient>
+            </defs>
+            <path d={area} fill="url(#net-worth-wash)" />
+          </>
+        )}
+
+        {/* The finger's position: a hairline down the plot and a marker on the curve. Both ride a
+            translate so they glide between months instead of teleporting — see .chart-cursor. */}
         {active !== null && shown && (
           <line
+            className="chart-cursor"
             x1={xOf(active)}
             y1={0}
             x2={xOf(active)}
@@ -553,6 +636,7 @@ export function TrendChart({
 
         {active !== null && shown && (
           <circle
+            className="chart-cursor"
             cx={xOf(active)}
             cy={yOf(shown.total)}
             r={5}

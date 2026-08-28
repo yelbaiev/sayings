@@ -246,6 +246,36 @@
   }
 }
 
+/* ------------------------------------------------------------------------------ charts */
+
+/*
+ * The scrub cursor: the marker on a curve, the crosshair under it, the band behind a column.
+ *
+ * It glides between points rather than jumping to them. The readings themselves stay snapped to
+ * real data — a monthly series holds no value for the 12th of April, and inventing one to put
+ * under a finger would be a chart making numbers up — so the honesty is in the *value* and the
+ * smoothness is in the *motion*. Roughly 45px between months at phone width, which teleports
+ * without this and glides with it.
+ *
+ * The transition is on the SVG *geometry* properties, which are real CSS properties in every
+ * browser this app runs in. That keeps the positions as plain attributes — no inline style per
+ * frame — and degrades to the old snap where they are not supported.
+ */
+.chart-cursor {
+  transition:
+    cx 140ms cubic-bezier(0.22, 0.61, 0.36, 1),
+    cy 140ms cubic-bezier(0.22, 0.61, 0.36, 1),
+    x 140ms cubic-bezier(0.22, 0.61, 0.36, 1),
+    x1 140ms cubic-bezier(0.22, 0.61, 0.36, 1),
+    x2 140ms cubic-bezier(0.22, 0.61, 0.36, 1);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .chart-cursor {
+    transition: none;
+  }
+}
+
 /* ------------------------------------------------------------------------- press flash */
 
 /*
