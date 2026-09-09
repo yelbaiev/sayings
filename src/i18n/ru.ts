@@ -309,6 +309,8 @@ const ru: Dictionary = {
   "recurring.skip": "Пропустить",
   "recurring.added": "{label} добавлено",
   "recurring.skipped": "{label} пропущено",
+  "recurring.deleted": "{label} удалено",
+  "recurring.deleteHint": "Смахните строку, чтобы удалить",
   "recurring.empty": "Регулярных пока нет. Добавьте аренду или подписку — и она сама напомнит о себе.",
   "recurring.reviewHint": "Ничего не добавляется без подтверждения — суммы меняются.",
   "recurring.monthlyExpense": "Расходы в месяц",

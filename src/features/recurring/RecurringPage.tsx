@@ -7,7 +7,7 @@ import { parseTemplate, serialiseTemplate, type QuickTileTemplate } from "@share
 import type { Account, Category, Recurring } from "@shared/schema";
 import { useMemo, useState } from "react";
 import { useApp } from "~/app/AppContext";
-import { newId, put, remove } from "~/db/mutations";
+import { newId, put, remove, restore } from "~/db/mutations";
 import { useAccounts, useCategories } from "~/db/queries";
 import { AmountField } from "~/features/entry/AmountField";
 import { toBaseAtLatest, useLatestRates } from "~/db/useRates";
@@ -18,13 +18,13 @@ import {
   type MonthlyEntry,
   type MonthlyTotal,
 } from "~/lib/recurring";
-import { Amount, EmptyState, Field, IconChip, Sheet, Toast, type ToastSpec } from "~/ui";
+import { Amount, EmptyState, Field, IconChip, Sheet, SwipeRow, Toast, type ToastSpec } from "~/ui";
 import { useRecurringActions, useRecurringList } from "./useRecurring";
 
 type CadenceKey = `recurring.cadence.${Recurring["cadence"]}`;
 
 export function RecurringPage() {
-  const { t, locale, baseCurrency } = useApp();
+  const { t, locale, baseCurrency, me } = useApp();
   const items = useRecurringList();
   const categories = useCategories(undefined, true);
   // Loaded here and passed down; see the note in QuickTiles.
@@ -79,6 +79,25 @@ export function RecurringPage() {
     };
   }, [items, rates, baseCurrency]);
 
+  /*
+   * Deleting from the list, not only from inside the editor.
+   *
+   * The editor's hold-to-delete stays — it is where you land when a schedule needs looking at
+   * anyway — but ending a subscription is a decision you make while reading the list, and having
+   * to open a row you do not want to edit to find the button made pausing look like the only way
+   * to stop something. Swipe matches the transaction list, and the undo toast is the safety net
+   * that the hold gesture provides in the editor.
+   */
+  async function handleDelete(item: Recurring) {
+    const previous = await remove("recurring", item.id, me);
+    setToast({
+      message: t("recurring.deleted", { label: item.label }),
+      action: previous
+        ? { label: t("entry.undo"), onClick: () => void restore("recurring", previous, me) }
+        : undefined,
+    });
+  }
+
   return (
     <div className={PAGE}>
       <div className="mb-4 flex items-center justify-between gap-3">
@@ -88,7 +107,11 @@ export function RecurringPage() {
         </Button>
       </div>
 
-      <p className="mb-4 text-xs text-muted-foreground">{t("recurring.reviewHint")}</p>
+      <p className="mb-4 text-xs text-muted-foreground">
+        {t("recurring.reviewHint")}
+        {/* The swipe is only worth naming once there is something to swipe. */}
+        {items.length > 0 && ` · ${t("recurring.deleteHint")}`}
+      </p>
 
       {items.length > 0 && (
         <div className={cn(CARD, "mb-4")}>
@@ -117,63 +140,72 @@ export function RecurringPage() {
             const due = item.active === 1 && item.next_on <= today;
 
             return (
-              <div key={item.id} className={ROW}>
-                <button
-                  type="button"
-                  className="flex min-w-0 flex-1 items-center gap-2.5 text-left"
-                  onClick={() => setEditing(item)}
-                >
-                  <IconChip icon={category?.icon ?? "🔁"} color={category?.color} />
-                  <span className="min-w-0 flex-1">
-                    <span className={ROW_TITLE}>{item.label}</span>
-                    <span className={ROW_SUB}>
-                      {t(`recurring.cadence.${item.cadence}` as CadenceKey)}
-                      {item.active === 0
-                        ? ` · ${t("recurring.paused")}`
-                        : ` · ${t("recurring.next", { date: formatDate(item.next_on, locale) })}`}
+              <SwipeRow
+                key={item.id}
+                left={{
+                  label: t("common.delete"),
+                  tone: "danger",
+                  onAction: () => void handleDelete(item),
+                }}
+              >
+                <div className={ROW}>
+                  <button
+                    type="button"
+                    className="flex min-w-0 flex-1 items-center gap-2.5 text-left"
+                    onClick={() => setEditing(item)}
+                  >
+                    <IconChip icon={category?.icon ?? "🔁"} color={category?.color} />
+                    <span className="min-w-0 flex-1">
+                      <span className={ROW_TITLE}>{item.label}</span>
+                      <span className={ROW_SUB}>
+                        {t(`recurring.cadence.${item.cadence}` as CadenceKey)}
+                        {item.active === 0
+                          ? ` · ${t("recurring.paused")}`
+                          : ` · ${t("recurring.next", { date: formatDate(item.next_on, locale) })}`}
+                      </span>
                     </span>
-                  </span>
-                  {template && (
-                    <span className="shrink-0">
-                      <Amount
-                        minor={template.amount_minor}
-                        currency={template.currency}
-                        tone={template.kind}
-                      />
+                    {template && (
+                      <span className="shrink-0">
+                        <Amount
+                          minor={template.amount_minor}
+                          currency={template.currency}
+                          tone={template.kind}
+                        />
+                      </span>
+                    )}
+                  </button>
+
+                  {/* Sized by their labels. These used to reuse `.reorder__btn` — the 30x26px arrow
+                      button from the accounts list — with a hardcoded 56px width, so "Пропустить"
+                      overflowed its box and the two labels printed on top of each other. */}
+                  {due && (
+                    <span className="flex shrink-0 items-center gap-1.5">
+                      <Button
+                        variant="primary"
+                        size="sm"
+                        onClick={() =>
+                          void post(item).then(
+                            () => setToast({ message: t("recurring.added", { label: item.label }) }),
+                          )
+                        }
+                      >
+                        {t("recurring.addNow")}
+                      </Button>
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        onClick={() =>
+                          void skip(item).then(
+                            () => setToast({ message: t("recurring.skipped", { label: item.label }) }),
+                          )
+                        }
+                      >
+                        {t("recurring.skip")}
+                      </Button>
                     </span>
                   )}
-                </button>
-
-                {/* Sized by their labels. These used to reuse `.reorder__btn` — the 30x26px arrow
-                    button from the accounts list — with a hardcoded 56px width, so "Пропустить"
-                    overflowed its box and the two labels printed on top of each other. */}
-                {due && (
-                  <span className="flex shrink-0 items-center gap-1.5">
-                    <Button
-                      variant="primary"
-                      size="sm"
-                      onClick={() =>
-                        void post(item).then(
-                          () => setToast({ message: t("recurring.added", { label: item.label }) }),
-                        )
-                      }
-                    >
-                      {t("recurring.addNow")}
-                    </Button>
-                    <Button
-                      variant="ghost"
-                      size="sm"
-                      onClick={() =>
-                        void skip(item).then(
-                          () => setToast({ message: t("recurring.skipped", { label: item.label }) }),
-                        )
-                      }
-                    >
-                      {t("recurring.skip")}
-                    </Button>
-                  </span>
-                )}
-              </div>
+                </div>
+              </SwipeRow>
             );
           })}
         </div>

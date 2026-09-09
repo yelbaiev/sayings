@@ -312,6 +312,8 @@ const uk: Dictionary = {
   "recurring.skip": "Пропустити",
   "recurring.added": "{label} додано",
   "recurring.skipped": "{label} пропущено",
+  "recurring.deleted": "{label} видалено",
+  "recurring.deleteHint": "Проведіть по рядку, щоб видалити",
   "recurring.empty": "Регулярних ще немає. Додайте оренду чи підписку — і вона сама нагадає про себе.",
   "recurring.reviewHint": "Нічого не додається без підтвердження — суми змінюються.",
   "recurring.monthlyExpense": "Витрати на місяць",

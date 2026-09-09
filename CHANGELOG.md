@@ -1,5 +1,11 @@
 # Changelog
 
+## Version 1.3.3
+
+- Added: swipe a row in Regular payments to delete the schedule, with an undo in the toast. Deleting
+  was only possible from inside the editor, behind a hold at the bottom of a form you had no other
+  reason to open — so pausing looked like the only way to stop a subscription
+
 ## Version 1.3.2
 
 - Fixed: the toast at the bottom of the screen was a white pill on the dark theme — an inverted

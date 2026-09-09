@@ -288,6 +288,8 @@ const en = {
   "recurring.skip": "Skip",
   "recurring.added": "{label} added",
   "recurring.skipped": "{label} skipped",
+  "recurring.deleted": "{label} deleted",
+  "recurring.deleteHint": "Swipe a row to delete it",
   "recurring.empty": "Nothing recurring yet. Add rent or a subscription and it will offer itself when due.",
   "recurring.reviewHint": "Nothing is added until you confirm it — amounts vary.",
   "recurring.monthlyExpense": "Expenses per month",
