@@ -411,7 +411,14 @@ export function Toast({ spec, onDismiss }: { spec: ToastSpec; onDismiss: () => v
       className={cn(
         "fixed bottom-[calc(76px+env(safe-area-inset-bottom))] left-1/2 z-[60] -translate-x-1/2",
         "flex max-w-[calc(100vw-32px)] items-center gap-3 rounded-full py-2.5 pl-4 pr-3",
-        "bg-foreground text-sm text-background shadow-lg",
+        /*
+         * The toast sits on the app's own surface rather than inverting it. An inverted pill is the
+         * Material convention, but here it turned into a white slab floating over a dark screen —
+         * brighter than anything else on it, and reading as a system alert rather than a note from
+         * the app. `--popover` is the same surface the date picker and the keypad use, so the toast
+         * belongs to the same stack of things that sit above the page.
+         */
+        "border border-border bg-popover text-sm text-popover-foreground shadow-lg",
       )}
       role="status"
     >
@@ -419,7 +426,7 @@ export function Toast({ spec, onDismiss }: { spec: ToastSpec; onDismiss: () => v
       {spec.action && (
         <button
           type="button"
-          className="rounded-full bg-background/20 px-2.5 py-1 font-bold"
+          className="rounded-full bg-secondary px-2.5 py-1 font-bold text-secondary-foreground"
           onClick={() => {
             spec.action!.onClick();
             onDismiss();

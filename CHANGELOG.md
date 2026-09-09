@@ -1,5 +1,11 @@
 # Changelog
 
+## Version 1.3.2
+
+- Fixed: the toast at the bottom of the screen was a white pill on the dark theme — an inverted
+  Material snackbar, brighter than anything else on the screen and reading as a system alert. It now
+  sits on the same raised surface as the date picker and the keypad
+
 ## Version 1.3.1
 
 - Added: a second currency in Settings. Every total is then repeated in it — `463 967 ₴ ≈ 10 310 €`
