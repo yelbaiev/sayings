@@ -1,5 +1,9 @@
 # Changelog
 
+## Version 1.3.4
+
+- Changed: the last traces of the old sayFinance name in code, config examples and docs now say SAYings. Nothing you see in the app changes, and your data stays where it is (the on-device store keeps its original name on purpose)
+
 ## Version 1.3.3
 
 - Added: swipe a row in Regular payments to delete the schedule, with an undo in the toast. Deleting

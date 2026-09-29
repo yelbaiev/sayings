@@ -117,7 +117,7 @@ describe("finishHardReload", () => {
     const deleted: string[] = [];
     stubCaches(["workbox-precache-v2", "assets"], deleted);
     stubServiceWorker({ controlling: false });
-    sessionStorage.setItem("sayfinance:hard-reload", "1");
+    sessionStorage.setItem("sayings:hard-reload", "1");
     vi.stubGlobal("location", { reload: vi.fn() });
 
     expect(await finishHardReload()).toBe(2);
@@ -129,7 +129,7 @@ describe("finishHardReload", () => {
     const deleted: string[] = [];
     stubCaches(["workbox-precache-v2"], deleted);
     stubServiceWorker({ controlling: true });
-    sessionStorage.setItem("sayfinance:hard-reload", "1");
+    sessionStorage.setItem("sayings:hard-reload", "1");
 
     expect(await finishHardReload()).toBeNull();
     expect(deleted).toEqual([]);
@@ -142,9 +142,9 @@ describe("finishHardReload", () => {
      */
     stubCaches([]);
     stubServiceWorker({ controlling: true });
-    sessionStorage.setItem("sayfinance:hard-reload", "1");
+    sessionStorage.setItem("sayings:hard-reload", "1");
 
     await finishHardReload();
-    expect(sessionStorage.getItem("sayfinance:hard-reload")).toBeNull();
+    expect(sessionStorage.getItem("sayings:hard-reload")).toBeNull();
   });
 });

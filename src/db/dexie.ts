@@ -93,7 +93,7 @@ export interface DevicePrefs {
   secondaryCurrency: string | null;
 }
 
-export class SayFinanceDb extends Dexie {
+export class SayingsDb extends Dexie {
   members!: EntityTable<Member, "id">;
   accounts!: EntityTable<Account, "id">;
   categories!: EntityTable<Category, "id">;
@@ -131,7 +131,7 @@ export class SayFinanceDb extends Dexie {
   }
 }
 
-export const db = new SayFinanceDb();
+export const db = new SayingsDb();
 
 /** Tables that participate in sync, in the order a batch must be applied. */
 export const LOCAL_SYNCED_TABLES: readonly SyncedTable[] = [

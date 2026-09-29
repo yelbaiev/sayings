@@ -10,7 +10,7 @@
  * with `type === "opaqueredirect"` instead of a thrown TypeError.
  */
 
-const REAUTH_GUARD_KEY = "sayfinance:reauth-attempted";
+const REAUTH_GUARD_KEY = "sayings:reauth-attempted";
 
 export class ApiError extends Error {
   constructor(

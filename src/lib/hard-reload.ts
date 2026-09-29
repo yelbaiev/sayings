@@ -33,7 +33,7 @@
  * Workbox drops outdated precaches on its own next activation anyway.
  */
 
-const MARKER = "sayfinance:hard-reload";
+const MARKER = "sayings:hard-reload";
 
 export interface HardReloadResult {
   /** Cache Storage buckets removed. Workbox keeps one per precache revision. */

@@ -7,7 +7,7 @@ import { parseImportAmount } from "./transactions";
  *
  * This is not an importer: summary totals cannot be turned back into transactions. It exists
  * so the same file can be used as the acceptance test for the real importer — after importing
- * a per-transaction export, sayFinance's own category totals must reproduce this file to the
+ * a per-transaction export, SAYings' own category totals must reproduce this file to the
  * hryvnia. Anything else means the importer got something wrong.
  */
 

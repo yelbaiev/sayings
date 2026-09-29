@@ -14,7 +14,7 @@ const configured: AccessConfig = {
 };
 
 const request = (headers: Record<string, string> = {}) =>
-  new Request("https://sayfinance.example/api/me", { headers });
+  new Request("https://sayings.example/api/me", { headers });
 
 describe("verifyAccess", () => {
   it("fails closed with a 500 when the audience is unset", async () => {

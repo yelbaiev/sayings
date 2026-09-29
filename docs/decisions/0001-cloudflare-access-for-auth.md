@@ -5,7 +5,7 @@
 
 ## Context
 
-sayFinance has exactly two users, both known by email address, on phones and occasionally on
+SAYings has exactly two users, both known by email address, on phones and occasionally on
 desktop web. It holds the household's complete financial history. Authentication needs to be
 strong and low-maintenance, and the project is committed to Cloudflare as a single vendor.
 
