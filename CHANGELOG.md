@@ -1,5 +1,9 @@
 # Changelog
 
+## Version 1.3.5
+
+- Fixed: a TypeScript build cache file was committed by mistake in 1.3.4; it is removed and now ignored
+
 ## Version 1.3.4
 
 - Changed: the last traces of the old sayFinance name in code, config examples and docs now say SAYings. Nothing you see in the app changes, and your data stays where it is (the on-device store keeps its original name on purpose)
