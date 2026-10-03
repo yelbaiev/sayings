@@ -285,6 +285,7 @@ const uk: Dictionary = {
   "settings.baseChangeBackup": "Спочатку створюється резервна копія.",
   "settings.baseChangeManual": "Курси, які ви виправили вручну, переносяться, а не замінюються.",
   "settings.baseChangeGo": "Змінити на {base}",
+  "settings.baseChangeRates": "Перерахунок курсів…",
   "settings.baseChangeWorking": "Перерахунок… {done} з {total}",
   "settings.baseChangeDone": "Звітність тепер у {base}",
   "settings.baseChangeFailed": "Не вдалося завершити. Нічого не втрачено — копію створено, і повторний запуск продовжить з місця зупинки.",

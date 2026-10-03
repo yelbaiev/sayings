@@ -31,8 +31,15 @@ export interface RepriceResult {
   dates: number;
   /** Transactions re-priced in this call. */
   transactions: number;
-  /** Transactions still to do. Call again while this is above zero. */
+  /** Budgets converted to the new base in this call. */
+  budgets: number;
+  /**
+   * Work still to do — rate dates, transactions and budgets together. Call again while this is above
+   * zero.
+   */
   remaining: number;
+  /** Rate dates still to convert. Transactions wait for these: see repriceToBase. */
+  ratesRemaining: number;
   /**
    * Dates whose rates could not be converted because the new base was not quoted on them.
    *
@@ -58,14 +65,22 @@ async function convertRates(
   oldBase: Currency,
   newBase: Currency,
 ): Promise<{ dates: number; skipped: string[] }> {
+  /*
+   * Only dates that *can* be converted — the ones quoting the new base. A date that does not is
+   * never converted, and used to be picked again at the head of every call: with more than
+   * DATES_PER_CALL of them, every call spent itself on the same unconvertible dates and the rest
+   * were never reached.
+   */
   const { results: pending } = await db
     .prepare(
-      `SELECT DISTINCT on_date FROM fx_rates WHERE base != ? ORDER BY on_date ASC LIMIT ?`,
+      `SELECT DISTINCT on_date FROM fx_rates
+        WHERE base != ?1
+          AND on_date IN (SELECT on_date FROM fx_rates WHERE quote = ?1 AND base != ?1 AND rate > 0)
+        ORDER BY on_date ASC LIMIT ?2`,
     )
     .bind(newBase, DATES_PER_CALL)
     .all<{ on_date: string }>();
 
-  const skipped: string[] = [];
   let converted = 0;
 
   for (const { on_date } of pending) {
@@ -75,11 +90,7 @@ async function convertRates(
       .all<{ quote: string; rate: number; source: string }>();
 
     const divisor = rows.find((row) => row.quote === newBase)?.rate;
-    if (!divisor || !Number.isFinite(divisor) || divisor <= 0) {
-      // The new base was not quoted on this date, so nothing on this date can be expressed in it.
-      skipped.push(on_date);
-      continue;
-    }
+    if (!divisor || !Number.isFinite(divisor) || divisor <= 0) continue;
 
     const statements = [
       // Start from a clean date: the new base's own row would be a rate of 1 against itself, and
@@ -108,7 +119,80 @@ async function convertRates(
     converted++;
   }
 
-  return { dates: converted, skipped };
+  // The dates that will never convert — the new base was not quoted on them. Reported in full on
+  // every call, so the last call's answer is the whole list rather than just its own batch.
+  const { results: skipped } = await db
+    .prepare(
+      `SELECT DISTINCT on_date FROM fx_rates
+        WHERE base != ?1
+          AND on_date NOT IN (SELECT on_date FROM fx_rates WHERE quote = ?1 AND base != ?1 AND rate > 0)
+        ORDER BY on_date ASC`,
+    )
+    .bind(newBase)
+    .all<{ on_date: string }>();
+
+  return { dates: converted, skipped: skipped.map((row) => row.on_date) };
+}
+
+/** Rate dates that can still be converted to `newBase`. */
+async function convertibleDatesLeft(db: D1Database, newBase: Currency): Promise<number> {
+  const row = await db
+    .prepare(
+      `SELECT COUNT(DISTINCT on_date) AS count FROM fx_rates
+        WHERE base != ?1
+          AND on_date IN (SELECT on_date FROM fx_rates WHERE quote = ?1 AND base != ?1 AND rate > 0)`,
+    )
+    .bind(newBase)
+    .first<{ count: number }>();
+  return row?.count ?? 0;
+}
+
+/**
+ * Budgets not in the new base that a rate exists for, with that rate: the newest one for the
+ * budget's currency, in the new base.
+ *
+ * Converted at today's rate rather than left as typed (decided 2026-10-03): a ₴20 000 grocery limit
+ * left as 20 000 would read as €20 000 the moment spending is summed in euros, and every bar would
+ * sit near zero. A budget with no rate at all is left alone rather than guessed at.
+ */
+async function pendingBudgets(
+  db: D1Database,
+  newBase: Currency,
+): Promise<{ id: string; amount_minor: number; rate: number }[]> {
+  const { results } = await db
+    .prepare(
+      `SELECT b.id, b.amount_minor,
+              (SELECT rate FROM fx_rates f
+                WHERE f.quote = b.currency AND f.base = ?1
+                ORDER BY f.on_date DESC LIMIT 1) AS rate
+         FROM budgets b
+        WHERE b.currency != ?1 AND b.deleted = 0`,
+    )
+    .bind(newBase)
+    .all<{ id: string; amount_minor: number; rate: number | null }>();
+  return results.filter(
+    (row): row is { id: string; amount_minor: number; rate: number } =>
+      row.rate !== null && Number.isFinite(row.rate) && row.rate > 0,
+  );
+}
+
+async function repriceBudgets(db: D1Database, newBase: Currency): Promise<number> {
+  const pending = await pendingBudgets(db, newBase);
+  if (pending.length === 0) return 0;
+
+  const now = Date.now();
+  await db.batch([
+    bumpRevStatement(db),
+    ...pending.map((row) =>
+      db
+        .prepare(
+          `UPDATE budgets SET amount_minor = ?, currency = ?, rev = ${REV_IN_BATCH}, updated_at = ?
+            WHERE id = ?`,
+        )
+        .bind(Math.round(row.amount_minor * row.rate), newBase, HOUSEHOLD_ID, now, row.id),
+    ),
+  ]);
+  return pending.length;
 }
 
 /**
@@ -250,7 +334,17 @@ export async function repriceToBase(db: D1Database, next: unknown): Promise<Repr
       .prepare(`SELECT COUNT(*) AS count FROM transactions WHERE fx_base != ? AND deleted = 0`)
       .bind(next)
       .first<{ count: number }>()) ?? { count: 0 };
-    if (count === 0) return { base: next, dates: 0, transactions: 0, remaining: 0, skippedDates: [] };
+    if (count === 0 && (await pendingBudgets(db, next)).length === 0) {
+      return {
+        base: next,
+        dates: 0,
+        transactions: 0,
+        budgets: 0,
+        remaining: 0,
+        ratesRemaining: 0,
+        skippedDates: [],
+      };
+    }
   }
 
   if (current !== next) {
@@ -269,15 +363,31 @@ export async function repriceToBase(db: D1Database, next: unknown): Promise<Repr
   }
 
   const rates = await convertRates(db, oldBase, next);
-  const transactions = await repriceTransactions(db, oldBase, next);
+  const ratesRemaining = await convertibleDatesLeft(db, next);
+
+  /*
+   * Nothing is re-priced until every rate is in the new base.
+   *
+   * Transactions look up "the newest new-base rate on or before my date". While rates were still
+   * being converted 400 dates per call, that newest rate could be years older than the row — every
+   * later row took it, was marked done, and was never revisited. Waiting costs a few extra calls;
+   * the other order cost correct figures.
+   */
+  let transactions = 0;
+  let budgets = 0;
+  if (ratesRemaining === 0) {
+    transactions = await repriceTransactions(db, oldBase, next);
+    budgets = await repriceBudgets(db, next);
+  }
 
   const { count } = (await db
     .prepare(`SELECT COUNT(*) AS count FROM transactions WHERE fx_base != ? AND deleted = 0`)
     .bind(next)
     .first<{ count: number }>()) ?? { count: 0 };
+  const budgetsLeft = (await pendingBudgets(db, next)).length;
 
   // Cleared only when there is nothing left, so an interrupted run keeps the one fact it needs.
-  if (count === 0) {
+  if (count === 0 && ratesRemaining === 0 && budgetsLeft === 0) {
     await db.prepare(`DELETE FROM app_meta WHERE key = 'reprice_from'`).run();
   }
 
@@ -285,7 +395,9 @@ export async function repriceToBase(db: D1Database, next: unknown): Promise<Repr
     base: next,
     dates: rates.dates,
     transactions,
-    remaining: count,
+    budgets,
+    remaining: count + ratesRemaining + budgetsLeft,
+    ratesRemaining,
     skippedDates: rates.skipped,
   };
 }

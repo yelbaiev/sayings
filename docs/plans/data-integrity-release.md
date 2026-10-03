@@ -125,7 +125,7 @@ scheme: 1.3.9, 1.4.0, 1.4.1, …
   - After deploy: `SELECT COUNT(*) FROM transactions WHERE fx_base != (SELECT base_currency FROM
     households)` stays 0.
 
-### Phase 3 — A base change converts everything, correctly (E, F)
+### Phase 3 — A base change converts everything, correctly (E, F) — shipped 1.4.1
 
 - **Goal:** switching the base gives the same totals a fresh household in that base would have.
 - **Files in scope:** `worker/reprice.ts`, `src/features/settings/BaseChangeSheet.tsx` (progress
@@ -135,6 +135,8 @@ scheme: 1.3.9, 1.4.0, 1.4.1, …
 - **Behaviour change:**
   - `repriceToBase` reprices no transaction until `convertRates` reports no dates left. A call that
     converted rates returns `remaining > 0` and the client calls again, as it already does.
+  - Rate conversion only picks dates that quote the new base. Unconvertible dates used to fill
+    every batch, so with more than 400 of them the change stalled. Found while building this phase.
   - Budgets whose `currency != newBase` are converted at the latest rate and get a fresh rev.
     Converted, not reset, so the limit still means the same money (decision 3).
 - **New files:** none.

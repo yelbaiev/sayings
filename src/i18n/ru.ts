@@ -282,6 +282,7 @@ const ru: Dictionary = {
   "settings.baseChangeBackup": "Сначала создаётся резервная копия.",
   "settings.baseChangeManual": "Курсы, которые вы поправили руками, переносятся, а не заменяются.",
   "settings.baseChangeGo": "Сменить на {base}",
+  "settings.baseChangeRates": "Пересчёт курсов…",
   "settings.baseChangeWorking": "Пересчёт… {done} из {total}",
   "settings.baseChangeDone": "Отчётность теперь в {base}",
   "settings.baseChangeFailed": "Не удалось завершить. Ничего не потеряно — копия создана, и повторный запуск продолжит с места остановки.",

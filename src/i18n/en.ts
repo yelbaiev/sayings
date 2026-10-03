@@ -261,6 +261,7 @@ const en = {
   "settings.baseChangeBackup": "A backup is taken first.",
   "settings.baseChangeManual": "Rates you corrected by hand are carried across, not replaced.",
   "settings.baseChangeGo": "Change to {base}",
+  "settings.baseChangeRates": "Converting exchange rates…",
   "settings.baseChangeWorking": "Re-pricing… {done} of {total}",
   "settings.baseChangeDone": "Now reporting in {base}",
   "settings.baseChangeFailed": "Could not finish. Nothing is lost — a backup was taken and running it again continues where it stopped.",

@@ -119,8 +119,11 @@ export interface RepriceResult {
   base: string;
   dates: number;
   transactions: number;
+  budgets: number;
   /** Above zero means call again. The work is bounded per request so it cannot exceed a CPU limit. */
   remaining: number;
+  /** Rate dates still to convert. Entries are not re-priced until this reaches zero. */
+  ratesRemaining: number;
   skippedDates: string[];
 }
 
@@ -134,7 +137,7 @@ export interface RepriceResult {
  */
 export async function changeBaseCurrency(
   base: string,
-  onProgress?: (done: number, remaining: number) => void,
+  onProgress?: (done: number, remaining: number, ratesRemaining: number) => void,
 ): Promise<RepriceResult> {
   let result = await apiFetch<RepriceResult>("/api/household/base", {
     method: "POST",
@@ -143,7 +146,8 @@ export async function changeBaseCurrency(
   });
 
   let done = result.transactions;
-  onProgress?.(done, result.remaining);
+  // `?? 0`: a server older than this client sends no ratesRemaining.
+  onProgress?.(done, result.remaining, result.ratesRemaining ?? 0);
 
   for (let step = 0; result.remaining > 0 && step < 200; step++) {
     result = await apiFetch<RepriceResult>("/api/household/base", {
@@ -153,7 +157,7 @@ export async function changeBaseCurrency(
       body: JSON.stringify({ base, resume: true }),
     });
     done += result.transactions;
-    onProgress?.(done, result.remaining);
+    onProgress?.(done, result.remaining, result.ratesRemaining ?? 0);
   }
 
   return result;

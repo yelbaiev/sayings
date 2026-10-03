@@ -32,17 +32,21 @@ export function BaseChangeSheet({
   onDone: (message: string) => void;
 }) {
   const { t } = useApp();
-  const [progress, setProgress] = useState<{ done: number; remaining: number } | null>(null);
+  const [progress, setProgress] = useState<{
+    done: number;
+    remaining: number;
+    ratesRemaining: number;
+  } | null>(null);
   const [failed, setFailed] = useState(false);
 
   const working = progress !== null && !failed;
 
   async function run() {
     setFailed(false);
-    setProgress({ done: 0, remaining: transactionCount });
+    setProgress({ done: 0, remaining: transactionCount, ratesRemaining: 0 });
     try {
-      const result = await changeBaseCurrency(next, (done, remaining) =>
-        setProgress({ done, remaining }),
+      const result = await changeBaseCurrency(next, (done, remaining, ratesRemaining) =>
+        setProgress({ done, remaining, ratesRemaining }),
       );
       const skipped =
         result.skippedDates.length > 0
@@ -71,7 +75,11 @@ export function BaseChangeSheet({
         {failed && <p className="mt-1.5 text-xs leading-normal text-muted-foreground">{t("settings.baseChangeFailed")}</p>}
 
         <Button variant="primary" block disabled={working} onClick={() => void run()}>
-          {working
+          {/* Rates are converted before any entry is touched, which on a long history is a few
+              calls of "0 of 900" — named, so it does not read as stuck. */}
+          {working && progress.ratesRemaining > 0
+            ? t("settings.baseChangeRates")
+            : working
             ? t("settings.baseChangeWorking", {
                 done: progress.done,
                 total: transactionCount,

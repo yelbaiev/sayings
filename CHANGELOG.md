@@ -1,5 +1,12 @@
 # Changelog
 
+## Version 1.4.1
+
+- Fixed: changing the main currency on a long history could price later entries at a rate years out of date, and they were never corrected; every rate is now converted before any entry is re-priced
+- Fixed: budgets weren't converted when the main currency changed, so a ₴20 000 limit became €20 000; they now convert at the latest rate
+- Fixed: a main-currency change could stop making progress when the new currency had no published rate on many past dates
+- Changed: while a main-currency change runs, it says "Converting exchange rates…" before it starts counting entries
+
 ## Version 1.4.0
 
 - Fixed: when an entry saved offline got its real exchange rate overnight, the corrected figure stayed on the server and never reached the phones — and the next edit on a phone put the estimate back

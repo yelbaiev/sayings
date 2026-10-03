@@ -342,3 +342,99 @@ describe("what the client learns about", () => {
     );
   });
 });
+
+/** Runs the change the way the client does: call again while there is work left. */
+async function repriceFully(base: string) {
+  let result = await repriceToBase(env.DB, base);
+  for (let step = 0; result.remaining > 0 && step < 50; step++) {
+    result = await repriceToBase(env.DB, base);
+  }
+  return result;
+}
+
+/** One rate date per day from `start`, `count` days long, with EUR and USD quoted. */
+async function seedDays(start: string, count: number, usdOn: (day: number) => number) {
+  const statements = [];
+  for (let day = 0; day < count; day++) {
+    const date = new Date(Date.parse(`${start}T00:00:00Z`) + day * 86_400_000).toISOString().slice(0, 10);
+    statements.push(
+      env.DB.prepare(
+        `INSERT INTO fx_rates (on_date, quote, rate, source, base) VALUES (?, 'EUR', 50, 'nbu', 'UAH')`,
+      ).bind(date),
+      env.DB.prepare(
+        `INSERT INTO fx_rates (on_date, quote, rate, source, base) VALUES (?, 'USD', ?, 'nbu', 'UAH')`,
+      ).bind(date, usdOn(day)),
+    );
+  }
+  await env.DB.batch(statements);
+}
+
+describe("a long history", () => {
+  it("prices every row at its own date's rate, not the newest converted so far", async () => {
+    // 450 dates: more than one call converts. The dollar climbs a hryvnia a day, so a row priced
+    // at the wrong date's rate is visibly wrong rather than off by a rounding.
+    await env.DB.prepare(`DELETE FROM fx_rates`).run();
+    await seedDays("2025-01-01", 450, (day) => 30 + day);
+    const days = [10, 200, 399, 401, 449];
+    for (const day of days) {
+      const date = new Date(Date.parse("2025-01-01T00:00:00Z") + day * 86_400_000).toISOString().slice(0, 10);
+      await addTx({ id: `tx_${day}`, account_id: "acc_usd", currency: "USD", amount_minor: 10_000, occurred_on: date });
+    }
+
+    const result = await repriceFully("EUR");
+    expect(result.remaining).toBe(0);
+
+    for (const day of days) {
+      const row = await readTx(`tx_${day}`);
+      // EUR per USD on that day: (30 + day) / 50.
+      expect(row!.fx_rate).toBeCloseTo((30 + day) / 50, 9);
+      expect(row!.fx_base).toBe("EUR");
+    }
+  });
+
+  it("does not stall on dates the new base was never quoted on", async () => {
+    // 410 dates with no euro rate at all, then a few that have one. The unconvertible ones used to
+    // fill every call's batch, so the convertible ones were never reached.
+    await env.DB.prepare(`DELETE FROM fx_rates`).run();
+    const statements = [];
+    for (let day = 0; day < 410; day++) {
+      const date = new Date(Date.parse("2024-01-01T00:00:00Z") + day * 86_400_000).toISOString().slice(0, 10);
+      statements.push(
+        env.DB.prepare(
+          `INSERT INTO fx_rates (on_date, quote, rate, source, base) VALUES (?, 'USD', 40, 'nbu', 'UAH')`,
+        ).bind(date),
+      );
+    }
+    await env.DB.batch(statements);
+    await seedDays("2026-08-01", 3, () => 45);
+
+    const result = await repriceFully("EUR");
+    expect(result.remaining).toBe(0);
+    expect(result.skippedDates).toHaveLength(410);
+    const converted = await env.DB.prepare(
+      `SELECT COUNT(DISTINCT on_date) AS n FROM fx_rates WHERE base = 'EUR'`,
+    ).first<{ n: number }>();
+    expect(converted!.n).toBe(3);
+  });
+});
+
+describe("budgets", () => {
+  it("are converted at the newest rate, keeping the same money", async () => {
+    await env.DB.prepare(
+      `INSERT INTO budgets (id, household_id, category_id, period_month, amount_minor, currency, rollover, rev, updated_at, deleted)
+       VALUES ('b_groceries', 'hh_default', 'cat_groceries', NULL, 2000000, 'UAH', 0, 1, 1, 0)`,
+    ).run();
+    const before = await currentRev(env.DB);
+
+    await repriceFully("EUR");
+
+    const budget = await env.DB.prepare(
+      `SELECT amount_minor, currency, rev FROM budgets WHERE id = 'b_groceries'`,
+    ).first<{ amount_minor: number; currency: string; rev: number }>();
+    expect(budget!.currency).toBe("EUR");
+    // ₴20 000 at 51.6423 ₴/€ is €387.28.
+    expect(budget!.amount_minor).toBe(38_728);
+    // A new rev, so the phones receive the converted figure.
+    expect(budget!.rev).toBeGreaterThan(before);
+  });
+});
