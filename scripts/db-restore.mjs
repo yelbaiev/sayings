@@ -1,5 +1,7 @@
 import { execFileSync } from "node:child_process";
 import { existsSync, readFileSync, writeFileSync } from "node:fs";
+import { snapshotToStatements } from "./restore-sql.mjs";
+import { configPath } from "./wrangler-config.mjs";
 
 /**
  * Restores a database from a backup.
@@ -29,49 +31,13 @@ if (!existsSync(source)) {
   process.exit(1);
 }
 
-const quote = (value) => {
-  if (value === null || value === undefined) return "NULL";
-  if (typeof value === "number") return String(value);
-  return `'${String(value).replace(/'/g, "''")}'`;
-};
-
-/**
- * Turns a nightly JSON snapshot into SQL.
- *
- * Deletes before inserting, per table, so a restore replaces state rather than merging into it —
- * merging would leave rows that were deleted after the snapshot was taken, which is precisely what
- * someone restoring is trying to undo. Soft-deleted rows are in the snapshot on purpose and are
- * reinserted, so deletions are reproduced too.
- *
- * Table order does not matter. The only foreign keys in the schema point at `households`, which is
- * created by migration `0001` rather than carried in a snapshot — nothing here references anything
- * else here. The pragma is emitted anyway, matching what `wrangler d1 export` itself writes.
- */
-function jsonToSql(json) {
-  const { tables } = JSON.parse(json);
-  const statements = ["PRAGMA defer_foreign_keys=TRUE;"];
-
-  for (const [table, rows] of Object.entries(tables)) {
-    if (!Array.isArray(rows)) continue;
-    statements.push(`DELETE FROM ${table};`);
-    for (const row of rows) {
-      const columns = Object.keys(row);
-      if (columns.length === 0) continue;
-      statements.push(
-        `INSERT INTO ${table} (${columns.join(", ")}) VALUES (${columns
-          .map((column) => quote(row[column]))
-          .join(", ")});`,
-      );
-    }
-  }
-  return statements.join("\n");
-}
-
 let sqlFile = source;
 if (source.endsWith(".json")) {
   sqlFile = `${source.replace(/\.json$/, "")}.restore.sql`;
-  writeFileSync(sqlFile, jsonToSql(readFileSync(source, "utf8")));
+  const { statements, warnings } = snapshotToStatements(readFileSync(source, "utf8"));
+  writeFileSync(sqlFile, statements.join("\n"));
   console.log(`→ converted ${source} to ${sqlFile}`);
+  for (const warning of warnings) console.warn(`! ${warning}`);
 }
 
 console.log(`→ restoring ${sqlFile} into the ${local ? "local" : "remote"} database`);
@@ -87,8 +53,17 @@ execFileSync(
     local ? "--local" : "--remote",
     `--file=${sqlFile}`,
     "--yes",
+    // This installation's config, as db:backup uses. Without it wrangler read the tracked template,
+    // whose database id is blank, so a restore to the real database could not run at all.
+    "-c",
+    configPath(),
   ],
   { stdio: "inherit" },
 );
 
 console.log("✓ restored. Check Reports against a figure you remember before trusting it.");
+console.log(
+  "  Every restored row has a fresh sync number, so phones re-download it on their next sync. " +
+    "Anything entered on a phone after the snapshot is not in it — open Settings → reset local mirror " +
+    "on each phone to drop those local-only rows.",
+);

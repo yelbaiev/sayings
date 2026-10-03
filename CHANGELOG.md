@@ -1,5 +1,12 @@
 # Changelog
 
+## Version 1.4.3
+
+- Fixed: a nightly backup restored onto a fresh database left nobody able to sign in, reset the main currency to hryvnia, read every exchange rate as hryvnia-based, and stopped phones receiving new changes. Backups now carry passkeys (public keys only), the main currency and currency list, full exchange rates, the app's settings and the sync counter
+- Fixed: after a restore, phones kept their cached data instead of the restored state; every restored row now syncs down again
+- Fixed: `npm run db:restore` used the blank template config instead of this installation's, so restoring to the live database could not run
+- Changed: a restore signs everyone out (sessions and pending invites are cleared, not revived), and restoring an older backup prints what it couldn't bring back
+
 ## Version 1.4.2
 
 - Fixed: amounts in currencies without decimals (Japanese yen, Korean won, Icelandic króna, Vietnamese dong) were converted 100× too small, and Tunisian dinar 10× too large, in totals, reports and budgets

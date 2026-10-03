@@ -171,7 +171,7 @@ scheme: 1.3.9, 1.4.0, 1.4.1, …
   - After deploy: `SELECT SUM(base_amount_minor) FROM transactions WHERE deleted = 0` is unchanged.
     The household has only 2-digit currencies, so the sum must not move.
 
-### Phase 5 — A nightly backup is a whole installation (H)
+### Phase 5 — A nightly backup is a whole installation (H) — shipped 1.4.3
 
 - **Goal:** a fresh D1, the migrations, and one nightly JSON file give a working app that the
   existing devices can keep syncing with.
@@ -188,8 +188,12 @@ scheme: 1.3.9, 1.4.0, 1.4.1, …
     revive expired access.
   - The restore script handles `schema: 1` (as now, with a printed warning about what it can't
     bring back) and `schema: 2`.
-  - `household_seq` is restored as `max(snapshot, max rev in restored rows)`, so no device cursor
-    is above it.
+  - `household_seq` is set to `max(database's own, snapshot's, max rev in rows) + 1`, and every
+    restored row is re-stamped with it, so every device re-reads the restored state. (Planned as
+    snapshot-only; a rollback into the same database has a counter above every device, which the
+    snapshot's alone would not beat.)
+  - Also fixed: `db-restore.mjs` called wrangler without `-c`, so it read the blank template config.
+    Found while verifying this phase.
 - **New files:** none.
 - **Modified files:** the four above.
 - **Verification:**

@@ -182,6 +182,27 @@ check out the previous tag and deploy it. The restore path is exercised in CI
 (`tests/worker/backup.test.ts`) by wiping a database, restoring it, and confirming the reports
 reproduce the original figures — an untested backup is not a backup.
 
+### What a nightly snapshot brings back
+
+From 1.4.3 on, a nightly snapshot (`schema: 2`) is a whole installation: the ledger, the passkeys
+(public keys only — they check a sign-in, they cannot perform one), the main currency and currency
+list, every exchange rate with its base, and the app's own settings. Restored onto a fresh database
+with the migrations applied, it signs in and syncs like the original.
+
+What a restore does on purpose:
+
+- **Signs everyone out.** Sessions and pending invites are short-lived and are cleared rather than
+  revived. Sign in again with your passkey.
+- **Gives every restored row a fresh sync number**, above anything the database or the snapshot
+  had seen. Phones re-download the restored state on their next sync instead of keeping what they
+  had cached.
+- **Cannot know about entries made after the snapshot.** A phone may still hold some locally. Open
+  Settings → reset local mirror on each phone after a restore so they match the server.
+
+Snapshots taken before 1.4.3 (`schema: 1`) still restore the ledger and print a warning: they have
+no passkeys, main currency or currency list, so sign in through Cloudflare Access (or claim the
+household again) and check the main currency in Settings.
+
 ## Importing a lot of history
 
 D1's free tier allows 100,000 rows written per day, and each index counts as a written row. A

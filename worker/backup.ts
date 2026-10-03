@@ -35,9 +35,25 @@ export async function runBackup(
   today: string,
 ): Promise<BackupResult> {
   const dump = await dumpHousehold(db);
-  const { results: rates } = await db
-    .prepare(`SELECT on_date, quote, rate FROM fx_rates ORDER BY on_date`)
-    .all<Record<string, unknown>>();
+  /*
+   * Everything else an installation needs to be itself, beyond the replicated tables.
+   *
+   * Schema 1 carried only the replicated tables and three columns of fx_rates. Restored onto a fresh
+   * database that was a ledger nobody could sign into (no passkeys), in the wrong main currency (no
+   * household row), with every rate read as hryvnia-based, and a sync counter back at 1 — below
+   * every phone's cursor, so no new write would ever reach them. Sessions, challenges and invites
+   * stay out on purpose: they are short-lived, and restoring them would revive expired access.
+   */
+  const all = async (sql: string) =>
+    (await db.prepare(sql).all<Record<string, unknown>>()).results;
+  const extra = {
+    households: await all(`SELECT * FROM households`),
+    household_seq: await all(`SELECT * FROM household_seq`),
+    app_meta: await all(`SELECT * FROM app_meta`),
+    // Public keys and signature counters: they verify a sign-in, they cannot perform one.
+    credentials: await all(`SELECT * FROM credentials`),
+    fx_rates: await all(`SELECT * FROM fx_rates ORDER BY on_date, quote`),
+  };
 
   const rows = Object.values(dump).reduce((sum, table) => sum + table.length, 0);
   const kind: "daily" | "monthly" = isLastDayOfMonth(today) ? "monthly" : "daily";
@@ -48,8 +64,8 @@ export async function runBackup(
     created_at: today,
     // Schema version travels with the data: a restore two years from now must be able to
     // tell what shape it is looking at.
-    schema: 1,
-    tables: { ...dump, fx_rates: rates },
+    schema: 2,
+    tables: { ...dump, ...extra },
   });
 
   const key = `backups/${kind}/${today}.json`;
