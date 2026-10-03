@@ -1,3 +1,4 @@
+import { convertMinor } from "@shared/money";
 import type { Currency } from "@shared/currency";
 
 /**
@@ -86,9 +87,8 @@ export async function toBase(
   base: Currency,
 ): Promise<{ minor: number; rate: number; estimated: boolean }> {
   const { rate, estimated } = await rateFor(currency, onDate, base);
-  const scaled = amountMinor * rate;
   return {
-    minor: Math.sign(scaled) * Math.round(Math.abs(scaled)),
+    minor: convertMinor(amountMinor, rate, currency, base),
     rate,
     estimated,
   };
@@ -115,7 +115,7 @@ export async function pricingFor(
 }> {
   const { rate, estimated } = await rateFor(currency, onDate, base);
   return {
-    base_amount_minor: Math.round(amountMinor * rate),
+    base_amount_minor: convertMinor(amountMinor, rate, currency, base),
     fx_rate: rate,
     fx_estimated: estimated ? 1 : 0,
     fx_source: estimated ? "estimated" : "auto",

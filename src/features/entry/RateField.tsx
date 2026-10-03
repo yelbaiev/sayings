@@ -1,3 +1,4 @@
+import { convertMinor } from "@shared/money";
 import { minorUnitDigits, type Currency } from "@shared/currency";
 import { useApp } from "~/app/AppContext";
 import { formatMoney } from "~/lib/format";
@@ -55,7 +56,7 @@ export function RateField({
 
   const parsed = Number(rate.replace(",", "."));
   const usable = Number.isFinite(parsed) && parsed > 0;
-  const converted = usable ? Math.round(amountMinor * parsed) : null;
+  const converted = usable ? convertMinor(amountMinor, parsed, currency, baseCurrency) : null;
 
   return (
     <Field

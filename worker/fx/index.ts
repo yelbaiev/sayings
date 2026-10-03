@@ -1,3 +1,4 @@
+import { convertMinor } from "@shared/money";
 import { CURRENCIES, SOURCE_PIVOT, type Currency, type RateSource } from "@shared/currency";
 import { HOUSEHOLD_ID } from "@shared/schema";
 import { bumpRevStatement, householdCurrencies, REV_IN_BATCH } from "../db";
@@ -322,8 +323,7 @@ export async function reconcileEstimatedRates(db: D1Database): Promise<number> {
   await db.batch([
     bumpRevStatement(db),
     ...fixable.map((row) => {
-      const scaled = row.amount_minor * row.resolved_rate!;
-      const baseAmount = Math.sign(scaled) * Math.round(Math.abs(scaled));
+      const baseAmount = convertMinor(row.amount_minor, row.resolved_rate!, row.currency as Currency, base);
       return db
         .prepare(
           `UPDATE transactions

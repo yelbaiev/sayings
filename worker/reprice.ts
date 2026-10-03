@@ -1,3 +1,4 @@
+import { convertMinor } from "@shared/money";
 import { isCurrency, type Currency } from "@shared/currency";
 import { HOUSEHOLD_ID } from "@shared/schema";
 import { bumpRevStatement, householdCurrencies, REV_IN_BATCH } from "./db";
@@ -158,10 +159,10 @@ async function convertibleDatesLeft(db: D1Database, newBase: Currency): Promise<
 async function pendingBudgets(
   db: D1Database,
   newBase: Currency,
-): Promise<{ id: string; amount_minor: number; rate: number }[]> {
+): Promise<{ id: string; amount_minor: number; currency: Currency; rate: number }[]> {
   const { results } = await db
     .prepare(
-      `SELECT b.id, b.amount_minor,
+      `SELECT b.id, b.amount_minor, b.currency,
               (SELECT rate FROM fx_rates f
                 WHERE f.quote = b.currency AND f.base = ?1
                 ORDER BY f.on_date DESC LIMIT 1) AS rate
@@ -169,9 +170,9 @@ async function pendingBudgets(
         WHERE b.currency != ?1 AND b.deleted = 0`,
     )
     .bind(newBase)
-    .all<{ id: string; amount_minor: number; rate: number | null }>();
+    .all<{ id: string; amount_minor: number; currency: Currency; rate: number | null }>();
   return results.filter(
-    (row): row is { id: string; amount_minor: number; rate: number } =>
+    (row): row is { id: string; amount_minor: number; currency: Currency; rate: number } =>
       row.rate !== null && Number.isFinite(row.rate) && row.rate > 0,
   );
 }
@@ -189,7 +190,13 @@ async function repriceBudgets(db: D1Database, newBase: Currency): Promise<number
           `UPDATE budgets SET amount_minor = ?, currency = ?, rev = ${REV_IN_BATCH}, updated_at = ?
             WHERE id = ?`,
         )
-        .bind(Math.round(row.amount_minor * row.rate), newBase, HOUSEHOLD_ID, now, row.id),
+        .bind(
+          convertMinor(row.amount_minor, row.rate, row.currency, newBase),
+          newBase,
+          HOUSEHOLD_ID,
+          now,
+          row.id,
+        ),
     ),
   ]);
   return pending.length;
@@ -246,8 +253,7 @@ async function repriceTransactions(
 
   const statements = results.map((row) => {
     const rate = rateFor(row, oldBase, newBase);
-    const scaled = row.amount_minor * rate;
-    const baseAmount = Math.sign(scaled) * Math.round(Math.abs(scaled));
+    const baseAmount = convertMinor(row.amount_minor, rate, row.currency as Currency, newBase);
 
     return db
       .prepare(

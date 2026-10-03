@@ -1,5 +1,11 @@
 # Changelog
 
+## Version 1.4.2
+
+- Fixed: amounts in currencies without decimals (Japanese yen, Korean won, Icelandic króna, Vietnamese dong) were converted 100× too small, and Tunisian dinar 10× too large, in totals, reports and budgets
+- Fixed: existing entries in those currencies are corrected automatically on update, and the corrected figures sync to every phone
+- Fixed: the second-currency figure beside totals had the same problem for those currencies
+
 ## Version 1.4.1
 
 - Fixed: changing the main currency on a long history could price later entries at a rate years out of date, and they were never corrected; every rate is now converted before any entry is re-priced

@@ -1,3 +1,4 @@
+import { convertMinor } from "@shared/money";
 import type { Currency } from "@shared/currency";
 import { useLiveQuery } from "dexie-react-hooks";
 import { db } from "./dexie";
@@ -30,8 +31,7 @@ export function toBaseAtLatest(
   if (currency === base) return minor;
   const rate = rates.get(currency);
   if (!rate) return null;
-  const scaled = minor * rate;
-  return Math.sign(scaled) * Math.round(Math.abs(scaled));
+  return convertMinor(minor, rate, currency, base);
 }
 
 /**
@@ -50,6 +50,5 @@ export function fromBaseAtLatest(
   if (currency === base) return minor;
   const rate = rates.get(currency);
   if (!rate) return null;
-  const scaled = minor / rate;
-  return Math.sign(scaled) * Math.round(Math.abs(scaled));
+  return convertMinor(minor, 1 / rate, base, currency);
 }

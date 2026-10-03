@@ -152,7 +152,7 @@ scheme: 1.3.9, 1.4.0, 1.4.1, …
   - Round trip: UAH→EUR→UAH returns every `base_amount_minor` to within 1 minor unit of the start.
   - No production smoke test. The live household isn't changing its base; the tests are the proof.
 
-### Phase 4 — Minor-unit digits (G)
+### Phase 4 — Minor-unit digits (G) — shipped 1.4.2
 
 - **Goal:** ¥1000 is ₴270, not ₴2.70.
 - **Files in scope:** every path listed in G; `shared/money.ts` only if `convertMinor` needs a

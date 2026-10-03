@@ -1,3 +1,4 @@
+import { convertMinor } from "@shared/money";
 import { parseTemplate, type QuickTileTemplate } from "@shared/quick-tile";
 import type { Recurring } from "@shared/schema";
 import { useLiveQuery } from "dexie-react-hooks";
@@ -90,7 +91,7 @@ export function useRecurringActions() {
           currency: template.currency,
           to_amount_minor: null,
           to_currency: null,
-          base_amount_minor: Math.round(template.amount_minor * fx.rate),
+          base_amount_minor: convertMinor(template.amount_minor, fx.rate, template.currency, baseCurrency),
           fx_rate: fx.rate,
           fx_estimated: fx.estimated ? 1 : 0,
           fx_source: fx.estimated ? "estimated" : "auto",

@@ -1,3 +1,4 @@
+import { convertMinor } from "@shared/money";
 import type { Currency } from "@shared/currency";
 import {
   guessMapping,
@@ -174,7 +175,7 @@ export function ImportPage({ onClose }: { onClose: (toast?: ToastSpec) => void }
           : ensureCategory(row.categoryName, row.kind === "income" ? "income" : "expense");
 
       const fx = await rateFor(row.currency, row.occurredOn!, baseCurrency);
-      const base = Math.round(row.amountMinor! * fx.rate);
+      const base = convertMinor(row.amountMinor!, fx.rate, row.currency, baseCurrency);
 
       newRows.push({
         table: "transactions",

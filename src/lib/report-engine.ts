@@ -1,6 +1,6 @@
 import type { Currency } from "@shared/currency";
 import type { Minor } from "@shared/money";
-import { minorToMajor, signedMinor } from "@shared/money";
+import { convertMinor, minorToMajor, signedMinor } from "@shared/money";
 import type { Account, Category, Member, Transaction } from "@shared/schema";
 import { accountDelta } from "@shared/money";
 import { addMonths, monthOf } from "./format";
@@ -310,8 +310,7 @@ export function netWorthOverTime(
         if (amount !== 0) missing.push(currency);
         continue;
       }
-      const converted = amount * rate;
-      total += Math.sign(converted) * Math.round(Math.abs(converted));
+      total += convertMinor(amount, rate, currency as Currency, base);
     }
 
     points.push({ period: bucket, byCurrency, total, missing });

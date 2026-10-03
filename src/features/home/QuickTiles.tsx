@@ -1,3 +1,4 @@
+import { convertMinor } from "@shared/money";
 import type { Currency } from "@shared/currency";
 import { cn } from "~/lib/cn";
 import { Button } from "~/ui/Button";
@@ -76,7 +77,7 @@ export function QuickTiles() {
         currency: template.currency,
         to_amount_minor: null,
         to_currency: null,
-        base_amount_minor: Math.round(template.amount_minor * fx.rate),
+        base_amount_minor: convertMinor(template.amount_minor, fx.rate, template.currency, baseCurrency),
         fx_rate: fx.rate,
         fx_estimated: fx.estimated ? 1 : 0,
         fx_source: fx.estimated ? "estimated" : "auto",

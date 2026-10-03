@@ -1,3 +1,4 @@
+import { convertMinor } from "@shared/money";
 import { type Currency } from "@shared/currency";
 import type { TxKind } from "@shared/money";
 import { serialiseTemplate, type QuickTileTemplate } from "@shared/quick-tile";
@@ -201,7 +202,10 @@ export function EntrySheet({
     typedRate !== null && Number.isFinite(typedRate) && typedRate > 0 ? typedRate : null;
   const amountMinor = evaluate(expression, currency);
   /** What this costs the household, at whatever rate is in force — source or corrected. */
-  const convertedMinor = Math.round(amountMinor * (manualRate ?? resolvedRate?.rate ?? 1));
+  const convertedMinor = useMemo(
+    () => convertMinor(amountMinor, manualRate ?? resolvedRate?.rate ?? 1, currency, baseCurrency),
+    [amountMinor, manualRate, resolvedRate, currency, baseCurrency],
+  );
   /*
    * The amount line: the expression as typed, or the figure once there is only a figure.
    *
@@ -399,7 +403,7 @@ export function EntrySheet({
           currency,
           to_amount_minor: null,
           to_currency: null,
-          base_amount_minor: Math.round(line.amountMinor * rate),
+          base_amount_minor: convertMinor(line.amountMinor, rate, currency, baseCurrency),
           fx_rate: rate,
           fx_estimated: estimated ? 1 : 0,
           fx_source: manualRate !== null ? "manual" : estimated ? "estimated" : "auto",
@@ -451,7 +455,7 @@ export function EntrySheet({
       currency,
       to_amount_minor: needsDestination ? (crossCurrency ? (toAmountMinor ?? 0) : amountMinor) : null,
       to_currency: needsDestination ? toAccount!.currency : null,
-      base_amount_minor: Math.round(amountMinor * rate),
+      base_amount_minor: convertMinor(amountMinor, rate, currency, baseCurrency),
       fx_rate: rate,
       fx_estimated: estimated ? 1 : 0,
       /*
