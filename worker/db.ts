@@ -222,28 +222,30 @@ export async function ensureMember(db: D1Database, identity: AccessIdentity): Pr
     role: count === 0 ? "owner" : "member",
   };
 
-  const rev = await bumpRev(db);
-  await db
-    .prepare(
-      `INSERT INTO members
-         (id, household_id, email, display_name, avatar_color, locale, role,
-          created_at, rev, updated_at, updated_by, deleted)
-       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 0)`,
-    )
-    .bind(
-      member.id,
-      member.household_id,
-      member.email,
-      member.display_name,
-      avatarColorFor(member.id),
-      member.locale,
-      member.role,
-      now,
-      rev,
-      now,
-      member.id,
-    )
-    .run();
+  // One batch: the rev and the row it labels become visible together. See bumpRevStatement.
+  await db.batch([
+    bumpRevStatement(db),
+    db
+      .prepare(
+        `INSERT INTO members
+           (id, household_id, email, display_name, avatar_color, locale, role,
+            created_at, rev, updated_at, updated_by, deleted)
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ${REV_IN_BATCH}, ?, ?, 0)`,
+      )
+      .bind(
+        member.id,
+        member.household_id,
+        member.email,
+        member.display_name,
+        avatarColorFor(member.id),
+        member.locale,
+        member.role,
+        now,
+        HOUSEHOLD_ID,
+        now,
+        member.id,
+      ),
+  ]);
 
   return member;
 }
@@ -266,6 +268,24 @@ export async function bumpRev(db: D1Database): Promise<number> {
   return row.rev;
 }
 
+/**
+ * The rev increment as a statement, for a `db.batch` that also writes the rows it labels.
+ *
+ * A batch is one transaction, so the new rev and its rows become visible together. Allocating with
+ * `bumpRev` and writing in a later statement left a window where the rev existed with nothing at
+ * it: a concurrent sync could write rev N+1, a third device could pull it and move its cursor past
+ * N, and the row at N then landed below that cursor, never to be delivered. Pair this with
+ * `REV_IN_BATCH` in the writes that follow it.
+ */
+export function bumpRevStatement(db: D1Database): D1PreparedStatement {
+  return db
+    .prepare(`UPDATE household_seq SET rev = rev + 1 WHERE household_id = ?`)
+    .bind(HOUSEHOLD_ID);
+}
+
+/** SQL for "the rev just allocated in this batch". Takes one bound parameter: the household id. */
+export const REV_IN_BATCH = `(SELECT rev FROM household_seq WHERE household_id = ?)`;
+
 export async function currentRev(db: D1Database): Promise<number> {
   const row = await db
     .prepare(`SELECT rev FROM household_seq WHERE household_id = ?`)
@@ -274,15 +294,21 @@ export async function currentRev(db: D1Database): Promise<number> {
   return row?.rev ?? 0;
 }
 
-/** Builds an idempotent whole-row upsert. Only whitelisted columns are ever written. */
+/**
+ * Builds an idempotent whole-row upsert. Only whitelisted columns are ever written.
+ *
+ * With `revInBatch`, the row's rev is not taken from `row` but read from `household_seq`, for use
+ * right after `bumpRevStatement` in the same `db.batch` — see there for why.
+ */
 export function upsertStatement(
   db: D1Database,
   table: SyncedTable,
   row: Record<string, unknown>,
+  { revInBatch = false }: { revInBatch?: boolean } = {},
 ): D1PreparedStatement {
   assertKnownTable(table);
-  const columns = TABLE_COLUMNS[table].filter((c) => c in row);
-  const placeholders = columns.map(() => "?").join(", ");
+  const columns = TABLE_COLUMNS[table].filter((c) => (revInBatch && c === "rev" ? true : c in row));
+  const placeholders = columns.map((c) => (revInBatch && c === "rev" ? REV_IN_BATCH : "?")).join(", ");
   const assignments = columns
     .filter((c) => c !== "id")
     .map((c) => `${c} = excluded.${c}`)
@@ -293,7 +319,9 @@ export function upsertStatement(
       `INSERT INTO ${table} (${columns.join(", ")}) VALUES (${placeholders})
        ON CONFLICT(id) DO UPDATE SET ${assignments}`,
     )
-    .bind(...columns.map((c) => row[c] ?? null));
+    .bind(
+      ...columns.map((c) => (revInBatch && c === "rev" ? HOUSEHOLD_ID : (row[c] ?? null))),
+    );
 }
 
 /** Reads the stored `updated_at` for a row, or null when it does not exist yet. */
@@ -339,6 +367,32 @@ export async function changesSince(
         LIMIT ?`,
     )
     .bind(HOUSEHOLD_ID, since, limit)
+    .all<Record<string, unknown>>();
+  return results;
+}
+
+/**
+ * Every row with `since < rev <= through`, uncapped.
+ *
+ * Revs are not unique per row: the seed migration put all thirty categories at one rev, and an
+ * import writes hundreds of transactions under one. A capped page can therefore stop in the middle
+ * of a rev, and a cursor set to that rev would skip the rest of it. A truncated page is completed
+ * with this, so it always ends on a whole rev.
+ */
+export async function changesThrough(
+  db: D1Database,
+  table: SyncedTable,
+  since: number,
+  through: number,
+): Promise<Record<string, unknown>[]> {
+  assertKnownTable(table);
+  const { results } = await db
+    .prepare(
+      `SELECT * FROM ${table}
+        WHERE household_id = ? AND rev > ? AND rev <= ?
+        ORDER BY rev ASC`,
+    )
+    .bind(HOUSEHOLD_ID, since, through)
     .all<Record<string, unknown>>();
   return results;
 }

@@ -1,5 +1,11 @@
 # Changelog
 
+## Version 1.3.9
+
+- Fixed: a phone catching up on more than 2,000 changes in one table (a new phone, a reset, a big import) received the first 2,000 and silently never got the rest
+- Fixed: a page of changes could stop partway through rows saved together — the Saldo import wrote 611 at once — and skip the remainder
+- Fixed: two phones syncing at the same moment could leave a change below the point the other had already caught up to, so it never arrived there
+
 ## Version 1.3.8
 
 - Fixed: a transfer could be saved with the same account on both sides by changing "From" after picking "To", and that entry then stopped the phone from syncing at all

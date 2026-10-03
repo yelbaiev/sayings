@@ -293,3 +293,76 @@ describe("authorship survives edits", () => {
     expect(row!.created_by).toBe(testMember.id);
   });
 });
+
+describe("pull cursor", () => {
+  /** Pulls from `since` until the server says there is no more, the way the client loops. */
+  async function pullAll(since: number, limit: number) {
+    const seen = new Map<string, number>();
+    let cursor = since;
+    for (let round = 0; round < 100; round++) {
+      const response = await handleSync(env.DB, testMember, { since: cursor, changes: [] }, limit);
+      for (const { table, row } of response.changes) seen.set(`${table}:${String(row.id)}`, row.rev as number);
+      // The cursor only moves forward, and never past a row it has not handed over.
+      expect(response.rev).toBeGreaterThanOrEqual(cursor);
+      for (const { row } of response.changes) expect(row.rev as number).toBeLessThanOrEqual(response.rev);
+      cursor = response.rev;
+      if (!response.more) return { seen, cursor };
+    }
+    throw new Error("pull never finished");
+  }
+
+  async function everyRow(): Promise<Set<string>> {
+    const dump = await dumpHousehold(env.DB);
+    return new Set(
+      Object.entries(dump).flatMap(([table, rows]) => rows.map((row) => `${table}:${String(row.id)}`)),
+    );
+  }
+
+  it("delivers every row when a table is larger than one pull", async () => {
+    // The bug: a truncated pull returned the head rev, and the rows past the cap were never sent.
+    await push([{ table: "accounts", row: accountRow() }]);
+    await push(Array.from({ length: 12 }, () => ({ table: "transactions", row: txRow() })));
+
+    const { seen, cursor } = await pullAll(0, 5);
+    expect(new Set(seen.keys())).toEqual(await everyRow());
+    expect(cursor).toBe(await currentRev(env.DB));
+  });
+
+  it("holds back a later row in another table until the truncated one catches up", async () => {
+    await push([{ table: "accounts", row: accountRow() }]);
+    const before = await currentRev(env.DB);
+    await push(Array.from({ length: 6 }, () => ({ table: "transactions", row: txRow() })));
+    // Written last, so its rev is above every transaction's — and its table is not the one cut off.
+    await push([{ table: "accounts", row: accountRow({ name: "Mono renamed", updated_at: Date.now() + 1 }) }]);
+
+    const first = await handleSync(env.DB, testMember, { since: before, changes: [] }, 3);
+    expect(first.more).toBe(true);
+    expect(first.changes.some((c) => c.table === "accounts")).toBe(false);
+
+    const { seen } = await pullAll(before, 3);
+    expect([...seen.keys()].filter((key) => key.startsWith("transactions:"))).toHaveLength(6);
+    expect(seen.has("accounts:acc_mono")).toBe(true);
+  });
+
+  it("never ends a page partway through rows that share a rev", async () => {
+    // The seed puts all 30 categories at rev 1, and an import writes hundreds of rows under one rev.
+    // A page cut at 5 used to leave the cursor at 1 with 25 categories never sent.
+    const first = await handleSync(env.DB, testMember, { since: 0, changes: [] }, 5);
+    const categories = first.changes.filter((c) => c.table === "categories");
+    expect(categories).toHaveLength(30);
+    expect(first.rev).toBe(1);
+  });
+
+  it("labels each pushed row with its own consecutive rev, allocated with the write", async () => {
+    await push([{ table: "accounts", row: accountRow() }]);
+    const before = await currentRev(env.DB);
+    await push(Array.from({ length: 3 }, () => ({ table: "transactions", row: txRow() })));
+
+    const { results } = await env.DB.prepare(
+      `SELECT rev FROM transactions WHERE rev > ? ORDER BY rev`,
+    )
+      .bind(before)
+      .all<{ rev: number }>();
+    expect(results.map((r) => r.rev)).toEqual([before + 1, before + 2, before + 3]);
+  });
+});

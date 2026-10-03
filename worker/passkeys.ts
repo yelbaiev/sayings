@@ -7,7 +7,7 @@ import {
   type RegistrationResponseJSON,
 } from "@simplewebauthn/server";
 import { HOUSEHOLD_ID } from "@shared/schema";
-import { avatarColorFor, bumpRev, type MemberRecord } from "./db";
+import { avatarColorFor, bumpRevStatement, REV_IN_BATCH, type MemberRecord } from "./db";
 
 /**
  * Passkey authentication: claim, login, invite.
@@ -414,27 +414,29 @@ async function createMember(
     role,
   };
   const now = Date.now();
-  const rev = await bumpRev(db);
-  await db
-    .prepare(
-      `INSERT INTO members
-         (id, household_id, email, display_name, avatar_color, locale, role,
-          created_at, rev, updated_at, updated_by, deleted)
-       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 0)`,
-    )
-    .bind(
-      member.id,
-      member.household_id,
-      member.email,
-      member.display_name,
-      avatarColorFor(member.id),
-      member.locale,
-      member.role,
-      now,
-      rev,
-      now,
-      member.id,
-    )
-    .run();
+  // One batch: the rev and the row it labels become visible together. See bumpRevStatement.
+  await db.batch([
+    bumpRevStatement(db),
+    db
+      .prepare(
+        `INSERT INTO members
+           (id, household_id, email, display_name, avatar_color, locale, role,
+            created_at, rev, updated_at, updated_by, deleted)
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ${REV_IN_BATCH}, ?, ?, 0)`,
+      )
+      .bind(
+        member.id,
+        member.household_id,
+        member.email,
+        member.display_name,
+        avatarColorFor(member.id),
+        member.locale,
+        member.role,
+        now,
+        HOUSEHOLD_ID,
+        now,
+        member.id,
+      ),
+  ]);
   return member;
 }

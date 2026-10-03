@@ -1,6 +1,6 @@
 import { isCurrency, type Currency } from "@shared/currency";
 import { HOUSEHOLD_ID } from "@shared/schema";
-import { bumpRev, householdCurrencies } from "./db";
+import { bumpRevStatement, householdCurrencies, REV_IN_BATCH } from "./db";
 
 /**
  * Changing the household's reporting currency.
@@ -158,7 +158,6 @@ async function repriceTransactions(
 
   if (results.length === 0) return 0;
 
-  const rev = await bumpRev(db);
   const now = Date.now();
 
   const statements = results.map((row) => {
@@ -170,7 +169,7 @@ async function repriceTransactions(
       .prepare(
         `UPDATE transactions
             SET base_amount_minor = ?, fx_rate = ?, fx_base = ?, fx_estimated = ?,
-                rev = ?, updated_at = ?
+                rev = ${REV_IN_BATCH}, updated_at = ?
           WHERE id = ?`,
       )
       .bind(
@@ -178,13 +177,14 @@ async function repriceTransactions(
         rate,
         newBase,
         rate === 1 && row.currency !== newBase ? 1 : 0,
-        rev,
+        HOUSEHOLD_ID,
         now,
         row.id,
       );
   });
 
-  await db.batch(statements);
+  // The rev is allocated inside the same batch as the rows it labels. See bumpRevStatement.
+  await db.batch([bumpRevStatement(db), ...statements]);
   return results.length;
 }
 

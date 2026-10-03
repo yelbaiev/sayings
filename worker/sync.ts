@@ -7,9 +7,9 @@ import {
   type SyncedTable,
 } from "@shared/schema";
 import {
-  bumpRev,
+  bumpRevStatement,
   changesSince,
-  currentRev,
+  changesThrough,
   existingUpdatedAt,
   readRow,
   upsertStatement,
@@ -34,6 +34,8 @@ export async function handleSync(
   db: D1Database,
   member: MemberRecord,
   body: unknown,
+  /** Overridable so a test can exercise truncation with a handful of rows. */
+  pullLimit = PULL_LIMIT,
 ): Promise<SyncResponse> {
   const parsed = syncRequestSchema.safeParse(body);
   if (!parsed.success) {
@@ -74,23 +76,56 @@ export async function handleSync(
     }
 
     // A fresh rev per accepted row keeps the stream strictly ordered, so another device's
-    // cursor lands between rows rather than in the middle of a batch.
-    const rev = await bumpRev(db);
-    await upsertStatement(db, change.table, { ...row, rev }).run();
+    // cursor lands between rows rather than in the middle of a batch. Allocated in the same batch
+    // as the write, so the rev never exists without its row — see bumpRevStatement.
+    await db.batch([
+      bumpRevStatement(db),
+      upsertStatement(db, change.table, row, { revInBatch: true }),
+    ]);
   }
 
   // Read the delta only after applying the push, so the response also carries back the
   // caller's own writes with their server-assigned revs.
-  const pulled: SyncResponse["changes"] = [];
-  let more = false;
+  const byTable: { table: SyncedTable; rows: Record<string, unknown>[] }[] = [];
+  /*
+   * Where a truncated table stopped. Each table is capped on its own, so one that hit the cap may
+   * have rows *below* revs another table returned. The cursor therefore cannot pass the lowest of
+   * these: rows above it are held back for the next round, whichever table they are in.
+   */
+  let truncatedAt = Number.POSITIVE_INFINITY;
 
   for (const table of SYNCED_TABLES) {
-    const rows = await changesSince(db, table, since, PULL_LIMIT);
-    if (rows.length === PULL_LIMIT) more = true;
-    for (const row of rows) pulled.push({ table, row });
+    let rows = await changesSince(db, table, since, pullLimit);
+    if (rows.length === pullLimit) {
+      // Finish the last rev: rows sharing it may lie beyond the cap. See changesThrough.
+      const lastRev = rows[rows.length - 1]!.rev as number;
+      rows = await changesThrough(db, table, since, lastRev);
+      truncatedAt = Math.min(truncatedAt, lastRev);
+    }
+    byTable.push({ table, rows });
   }
 
-  return { rev: await currentRev(db), changes: pulled, conflicts, more };
+  const more = truncatedAt !== Number.POSITIVE_INFINITY;
+  const pulled: SyncResponse["changes"] = [];
+  let cursor = since;
+  for (const { table, rows } of byTable) {
+    for (const row of rows) {
+      const rev = row.rev as number;
+      if (rev > truncatedAt) continue;
+      pulled.push({ table, row });
+      cursor = Math.max(cursor, rev);
+    }
+  }
+
+  /*
+   * The cursor is the highest rev actually delivered — never the household's head.
+   *
+   * It used to be the head, read after the pull. With a table truncated at the cap, that jumped
+   * the device's cursor over every row the cap held back, and the next round started above them:
+   * a new phone with 5 000 transactions would have received 2 000, forever, with "Reset local
+   * mirror" repeating the same loss.
+   */
+  return { rev: cursor, changes: pulled, conflicts, more };
 }
 
 export class SyncError extends Error {
