@@ -1,5 +1,18 @@
 # Changelog
 
+## Version 1.3.8
+
+- Fixed: a transfer could be saved with the same account on both sides by changing "From" after picking "To", and that entry then stopped the phone from syncing at all
+- Fixed: splitting the other person's transaction credited every line to whoever split it; splits also ignored a rate you had corrected by hand
+- Fixed: "Make recurring" didn't record who the new schedule belongs to
+- Fixed: repeat-last kept the original's author and its old exchange rate; it's now your entry at today's rate
+- Fixed: Duplicate kept the original day's exchange rate and joined the copy to the original's split
+- Fixed: with one card chosen in History, the balance column ran in a different order from the rows on a busy day, so it didn't subtract down; it also showed an incoming transfer's balance in the wrong currency
+- Fixed: "Change category" on a selection offers only categories of the selected rows' kind and leaves transfers alone, so income can no longer end up under an expense category
+- Fixed: a recurring payment is always in its account's currency — it used to default to hryvnia, so a 400 subscription on a dollar card took $400 off it
+- Changed: recurring payments take a "Next payment" date instead of a day of the month, so a new one isn't asked for a month late, a yearly one can be set to its real month, and moving the day applies from the next payment
+- Fixed: double-tapping "Add now" on a recurring payment posted it twice
+
 ## Version 1.3.7
 
 - Fixed: in Reports → By member, tapping a person opened every transaction they had ever entered, transfers included. It now lists exactly what their row counts: the report's period, without transfers

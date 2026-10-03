@@ -33,6 +33,23 @@ export function useDueRecurring(): Recurring[] {
   return dueRecurring(all, todayIso());
 }
 
+/**
+ * Schedules with a post or skip in progress. A double tap on "Add now" used to post twice: both taps
+ * read the same schedule before either had advanced it. Module-level, so the list and the Home
+ * prompt — separate hook instances — share it.
+ */
+const inFlight = new Set<string>();
+
+async function once<T>(id: string, run: () => Promise<T>, busy: T): Promise<T> {
+  if (inFlight.has(id)) return busy;
+  inFlight.add(id);
+  try {
+    return await run();
+  } finally {
+    inFlight.delete(id);
+  }
+}
+
 export function useRecurringActions() {
   const { me, baseCurrency } = useApp();
 
@@ -45,7 +62,7 @@ export function useRecurringActions() {
     [me],
   );
 
-  const post = useCallback(
+  const postOnce = useCallback(
     async (item: Recurring): Promise<{ transactionId: string } | null> => {
       const template = parseTemplate(item.template) as QuickTileTemplate | null;
       // A schedule whose category or account has gone is skipped rather than writing a row that
@@ -92,7 +109,14 @@ export function useRecurringActions() {
     [me, advance, baseCurrency],
   );
 
-  const skip = advance;
+  const post = useCallback(
+    (item: Recurring) => once(item.id, () => postOnce(item), null),
+    [postOnce],
+  );
+  const skip = useCallback(
+    (item: Recurring) => once(item.id, () => advance(item), undefined),
+    [advance],
+  );
 
   const undoPost = useCallback(
     async (transactionId: string, item: Recurring, previousNextOn: string) => {

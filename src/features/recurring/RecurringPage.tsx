@@ -239,20 +239,34 @@ function RecurringSheet({
   incomeCategories: Category[];
   onClose: () => void;
 }) {
-  const { t, me, baseCurrency, enabledCurrencies } = useApp();
+  const { t, me, baseCurrency } = useApp();
 
   const existing = item ? parseTemplate(item.template) : null;
 
   const [label, setLabel] = useState(item?.label ?? "");
   const [kind, setKind] = useState<"expense" | "income">(existing?.kind ?? "expense");
-  // The schedule's own currency, resolved first: the amount is scaled by it.
-  const prefillCurrency: Currency = existing?.currency ?? baseCurrency;
   const [amountMinor, setAmountMinor] = useState<number | null>(existing?.amount_minor ?? null);
-  const [currency, setCurrency] = useState<Currency>(prefillCurrency);
   const [categoryId, setCategoryId] = useState(existing?.category_id ?? "");
   const [accountId, setAccountId] = useState(existing?.account_id ?? accounts[0]?.id ?? "");
+  /*
+   * Always the account's own currency, as on the entry screen. It used to be picked separately and
+   * defaulted to the base, so "Netflix 400" on a dollar card posted $400 off it — the balance sums
+   * amounts in the account's currency without checking.
+   */
+  const currency: Currency =
+    (accounts.find((a) => a.id === accountId)?.currency as Currency | undefined) ??
+    existing?.currency ??
+    baseCurrency;
   const [cadence, setCadence] = useState<Recurring["cadence"]>(item?.cadence ?? "monthly");
-  const [dayOf, setDayOf] = useState(item?.day_of ?? 1);
+  /*
+   * The next payment, picked as a date. It replaces a bare "day of the month", which could not say
+   * which month: a new schedule always skipped to a whole period from today (rent on the 20th,
+   * created on the 3rd, first asked a month late), a yearly one was always anchored to the current
+   * month, and changing the day of an existing one only took effect a cycle later.
+   */
+  const [nextOn, setNextOn] = useState(
+    () => item?.next_on ?? nextOccurrence(todayIso(), "monthly", Number(todayIso().slice(8, 10))),
+  );
   const [active, setActive] = useState(item?.active !== 0);
   const [error, setError] = useState<string | null>(null);
 
@@ -286,9 +300,9 @@ function RecurringSheet({
       account_id: accountId,
     };
 
-    // A new schedule starts at its next occurrence rather than today, so creating it does not
-    // immediately prompt for a payment that has probably already been made.
-    const nextOn = item?.next_on ?? nextOccurrence(todayIso(), cadence, dayOf);
+    // The day it repeats on is the chosen date's — unless the date was left alone, so a rent on
+    // the 31st that is next due on 30 November keeps returning to the 31st.
+    const dayOf = item && nextOn === item.next_on ? item.day_of : Number(nextOn.slice(8, 10));
 
     await put(
       "recurring",
@@ -353,18 +367,7 @@ function RecurringSheet({
               label={t("entry.amount")}
             />
           </span>
-          <select
-            value={currency}
-            onChange={(event) => setCurrency(event.target.value as Currency)}
-            aria-label={t("accounts.currency")}
-            className="w-auto"
-          >
-            {enabledCurrencies.map((option) => (
-              <option key={option} value={option}>
-                {option}
-              </option>
-            ))}
-          </select>
+          <span className="text-sm text-muted-foreground">{currency}</span>
         </div>
       </Field>
 
@@ -406,22 +409,14 @@ function RecurringSheet({
         </select>
       </Field>
 
-      {cadence !== "weekly" && (
-        <Field
-          label={t("recurring.dayOf")}
-          hint={dayOf > 28 ? t("recurring.next", { date: nextOccurrence(todayIso(), cadence, dayOf) }) : undefined}
-        >
-          <input
-            type="number"
-            min={1}
-            max={31}
-            value={dayOf}
-            onChange={(event) =>
-              setDayOf(Math.max(1, Math.min(31, Number(event.target.value) || 1)))
-            }
-          />
-        </Field>
-      )}
+      <Field label={t("recurring.nextDate")}>
+        <input
+          type="date"
+          value={nextOn}
+          required
+          onChange={(event) => event.target.value && setNextOn(event.target.value)}
+        />
+      </Field>
 
       <label className="mt-3 flex min-h-11 items-center justify-between gap-3">
         <span>{t("recurring.pause")}</span>

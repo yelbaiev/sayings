@@ -305,7 +305,7 @@ const uk: Dictionary = {
   "recurring.cadence.weekly": "Щотижня",
   "recurring.cadence.monthly": "Щомісяця",
   "recurring.cadence.yearly": "Щороку",
-  "recurring.dayOf": "День місяця",
+  "recurring.nextDate": "Наступний платіж",
   "recurring.next": "Наступна {date}",
   "recurring.paused": "На паузі",
   "recurring.pause": "Пауза",

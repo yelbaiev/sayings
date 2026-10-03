@@ -302,7 +302,7 @@ const ru: Dictionary = {
   "recurring.cadence.weekly": "Каждую неделю",
   "recurring.cadence.monthly": "Каждый месяц",
   "recurring.cadence.yearly": "Каждый год",
-  "recurring.dayOf": "День месяца",
+  "recurring.nextDate": "Следующий платёж",
   "recurring.next": "Следующая {date}",
   "recurring.paused": "На паузе",
   "recurring.pause": "Пауза",

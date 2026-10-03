@@ -24,14 +24,19 @@ export function runningBalances(
   );
 
   /*
-   * Oldest first, and ties broken by id.
+   * Oldest first: by date, then by updated_at, then by id.
    *
-   * Several transactions a day is normal — a coffee and a metro fare share a date — so the sort
-   * needs a tiebreaker or the running figures shuffle between renders while the total stays right.
-   * The id is stable, arbitrary and always present, which is all a tiebreaker has to be.
+   * Several transactions a day is normal — a coffee and a metro fare share a date — and within a day
+   * the tiebreak has to be the one the list uses (useTransactions: updated_at, newest on top), read
+   * backwards. It used to be the id alone, which is random: about half the same-day pairs then ran
+   * in the opposite order to the rows on screen, and the column stopped subtracting down. The id
+   * stays as the last resort so the order never shuffles between renders.
    */
   const ordered = [...mine].sort(
-    (a, b) => a.occurred_on.localeCompare(b.occurred_on) || a.id.localeCompare(b.id),
+    (a, b) =>
+      a.occurred_on.localeCompare(b.occurred_on) ||
+      a.updated_at - b.updated_at ||
+      a.id.localeCompare(b.id),
   );
 
   const after = new Map<string, Minor>();

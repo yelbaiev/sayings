@@ -21,6 +21,7 @@ import {
 } from "~/db/queries";
 import { EntrySheet } from "~/features/entry/EntrySheet";
 import { formatDayHeading, todayIso } from "~/lib/format";
+import { pricingFor } from "~/lib/fx";
 import { Amount, Chip, EmptyState, IconChip, SwipeRow, Toast, type ToastSpec } from "~/ui";
 import { TransactionRow } from "./TransactionRow";
 
@@ -199,14 +200,19 @@ export function HistoryPage() {
 
   async function handleDuplicate(tx: Transaction) {
     const id = newId();
+    const today = todayIso();
     await put(
       "transactions",
       {
         ...tx,
         id,
-        occurred_on: todayIso(),
+        occurred_on: today,
         import_hash: null,
         receipt_key: null,
+        // A copy is its own entry, not another line of the original's split.
+        split_parent_id: null,
+        // Re-dated to today, so priced at today's rate rather than the original day's.
+        ...(await pricingFor(tx.amount_minor, tx.currency as Currency, today, baseCurrency)),
         // The copy is the duplicator's entry; the original keeps its own author.
         created_by: me.id,
       } as never,
@@ -216,10 +222,19 @@ export function HistoryPage() {
     // is one hold away. The undo cloud retired once deletion got its own safeguard.
   }
 
+  /** The kinds in the selection, which decide which categories it can be moved to. */
+  const selectedKinds = useMemo(
+    () => new Set(transactions.filter((tx) => selection.has(tx.id)).map((tx) => tx.kind)),
+    [transactions, selection],
+  );
+
   /** Bulk recategorise — the tool for cleaning up a large "Uncategorised" block after import. */
   async function bulkRecategorise(targetId: string) {
     const target = categories.find((c) => c.id === targetId);
-    const affected = transactions.filter((tx) => selection.has(tx.id));
+    if (!target) return;
+    // Only rows of the category's own kind. An income row under an expense category lands on the
+    // wrong side of every report, and a transfer has no category at all.
+    const affected = transactions.filter((tx) => selection.has(tx.id) && tx.kind === target.kind);
     for (const tx of affected) {
       await put("transactions", { ...tx, category_id: targetId } as never, me);
     }
@@ -348,7 +363,7 @@ export function HistoryPage() {
             className="w-auto"
           >
             <option value="">{t("history.recategorise")}</option>
-            {categories.map((c) => (
+            {categories.filter((c) => selectedKinds.has(c.kind)).map((c) => (
               <option key={c.id} value={c.id}>
                 {c.name}
               </option>
@@ -410,6 +425,7 @@ export function HistoryPage() {
                         transaction={row.transaction}
                         lookups={lookups}
                         runningMinor={running?.get(row.transaction.id)}
+                        runningCurrency={selected?.account.currency as Currency | undefined}
                         selected={selection.has(row.transaction.id)}
                         onClick={() => {
                           // Once a selection is open, tapping toggles rather than edits, so

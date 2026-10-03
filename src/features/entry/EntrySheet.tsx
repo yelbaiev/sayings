@@ -167,7 +167,10 @@ export function EntrySheet({
 
   const accountId = accountOverride ?? predictedAccountId;
   const account = accounts.find((a) => a.id === accountId) ?? accounts[0];
-  const toAccount = accounts.find((a) => a.id === toAccountId);
+  // Never the source itself. The "to" picker already leaves the source out, but the source can be
+  // changed afterwards; a transfer from an account to itself fails the server's schema and, being
+  // in the outbox, blocked every sync after it. Read as unchosen, it asks for a destination instead.
+  const toAccount = accounts.find((a) => a.id === toAccountId && a.id !== account?.id);
   const currency: Currency = (account?.currency as Currency) ?? baseCurrency;
 
   /** What a rate in state has to be a rate for, to still be the right one. */
@@ -373,15 +376,20 @@ export function EntrySheet({
   async function handleSplitSave(lines: { categoryId: string; amountMinor: number }[]) {
     if (!account) return;
 
-    const fxRate = await rateFor(currency, occurredOn, baseCurrency);
+    // The rate on screen, typed correction included — the same rule handleSave follows below.
+    const resolved = resolvedRate ?? (await rateFor(currency, occurredOn, baseCurrency));
+    const rate = manualRate ?? resolved.rate;
+    const estimated = manualRate === null && resolved.estimated;
     const parentId = editing?.split_parent_id ?? newId();
 
     await putMany(
       lines.map((line) => ({
-        created_by: editing ? (editing.created_by ?? editing.updated_by ?? null) : me.id,
         table: "transactions" as const,
         row: {
           id: newId(),
+          // Inside the row: putMany writes only `row`, and beside it this was silently dropped, so
+          // splitting the other person's entry re-attributed every line to whoever split it.
+          created_by: editing ? (editing.created_by ?? editing.updated_by ?? null) : me.id,
           kind,
           occurred_on: occurredOn,
           account_id: account.id,
@@ -391,9 +399,10 @@ export function EntrySheet({
           currency,
           to_amount_minor: null,
           to_currency: null,
-          base_amount_minor: Math.round(line.amountMinor * fxRate.rate),
-          fx_rate: fxRate.rate,
-          fx_estimated: fxRate.estimated ? 1 : 0,
+          base_amount_minor: Math.round(line.amountMinor * rate),
+          fx_rate: rate,
+          fx_estimated: estimated ? 1 : 0,
+          fx_source: manualRate !== null ? "manual" : estimated ? "estimated" : "auto",
           note: note.trim() || null,
           payee: null,
           tags: null,
@@ -633,6 +642,7 @@ export function EntrySheet({
         // Never today: posting it immediately would duplicate the transaction it came from.
         next_on: nextOccurrence(tx.occurred_on, "monthly", dayOf),
         active: 1,
+        created_by: me.id,
       } as never,
       me,
     );

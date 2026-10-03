@@ -93,3 +93,25 @@ export async function toBase(
     estimated,
   };
 }
+
+/**
+ * The pricing fields for a copy of a transaction re-dated to `onDate`.
+ *
+ * Duplicate and repeat-last both move a row to today, and copying its rate along with it kept the
+ * original day's figure — a euro coffee from March repeated in October at March's rate, marked
+ * "manual" if the original was, which also shielded it from every later correction.
+ */
+export async function pricingFor(
+  amountMinor: number,
+  currency: Currency,
+  onDate: string,
+  base: Currency,
+): Promise<{ base_amount_minor: number; fx_rate: number; fx_estimated: 0 | 1; fx_source: string }> {
+  const { rate, estimated } = await rateFor(currency, onDate, base);
+  return {
+    base_amount_minor: Math.round(amountMinor * rate),
+    fx_rate: rate,
+    fx_estimated: estimated ? 1 : 0,
+    fx_source: estimated ? "estimated" : "auto",
+  };
+}

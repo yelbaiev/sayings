@@ -29,6 +29,7 @@ export function TransactionRow({
   onLongPress,
   selected,
   runningMinor,
+  runningCurrency,
   showDate,
 }: {
   transaction: Transaction;
@@ -43,6 +44,9 @@ export function TransactionRow({
    * HistoryPage, which explains why it is not always shown.
    */
   runningMinor?: number | undefined;
+  /** The filtered account's currency, which the balance is in. Not the row's: a transfer arriving
+   *  from a hryvnia card into a dollar one is a ₴ row, but what the dollar card holds is in $. */
+  runningCurrency?: Currency | undefined;
   /**
    * Leads the subtitle with the day. History groups rows under day headings and leaves it off;
    * every other list (Home's recent rows, a report's drill-down) has no heading to say when.
@@ -136,7 +140,7 @@ export function TransactionRow({
             {/* Named for a screen reader, which would otherwise read two bare numbers on one row
                 with nothing to say which is the amount and which is what was left. */}
             <span className="sr-only">{t("history.runningBalance")} </span>
-            {formatMoney(runningMinor, tx.currency as Currency, locale)}
+            {formatMoney(runningMinor, runningCurrency ?? (tx.currency as Currency), locale)}
           </span>
         )}
       </span>

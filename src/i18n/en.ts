@@ -281,7 +281,7 @@ const en = {
   "recurring.cadence.weekly": "Weekly",
   "recurring.cadence.monthly": "Monthly",
   "recurring.cadence.yearly": "Yearly",
-  "recurring.dayOf": "Day of the month",
+  "recurring.nextDate": "Next payment",
   "recurring.next": "Next {date}",
   "recurring.paused": "Paused",
   "recurring.pause": "Pause",

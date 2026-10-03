@@ -41,7 +41,18 @@ describe("runningBalances", () => {
     expect(after.get("t3")).toBe(9_400);
   });
 
-  it("breaks ties on the same day by id, so the column does not shuffle", () => {
+  it("orders a day's rows the way the list does, so the column subtracts down", () => {
+    // The list puts the later-written row on top. Its id sorts first, which used to put it first.
+    const rows = [
+      tx({ id: "a-later", occurred_on: "2026-08-01", updated_at: 20, amount_minor: 200 }),
+      tx({ id: "z-earlier", occurred_on: "2026-08-01", updated_at: 10, amount_minor: 100 }),
+    ];
+    const after = runningBalances("a", 1_000, rows);
+    expect(after.get("z-earlier")).toBe(900);
+    expect(after.get("a-later")).toBe(700);
+  });
+
+  it("breaks remaining ties on the same day by id, so the column does not shuffle", () => {
     const rows = [
       tx({ id: "b", occurred_on: "2026-08-01", amount_minor: 200 }),
       tx({ id: "a", occurred_on: "2026-08-01", amount_minor: 100 }),
