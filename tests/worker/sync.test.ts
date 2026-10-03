@@ -366,3 +366,61 @@ describe("pull cursor", () => {
     expect(results.map((r) => r.rev)).toEqual([before + 1, before + 2, before + 3]);
   });
 });
+
+describe("members through sync", () => {
+  async function seedMembers() {
+    await env.DB.batch([
+      env.DB.prepare(
+        `INSERT INTO members (id, household_id, email, display_name, avatar_color, locale, role, created_at, rev, updated_at, deleted)
+         VALUES ('mem_test', 'hh_default', 'test@example.com', 'Test', '#3E63DD', 'en', 'owner', 1, 2, 1, 0)`,
+      ),
+      env.DB.prepare(
+        `INSERT INTO members (id, household_id, email, display_name, avatar_color, locale, role, created_at, rev, updated_at, deleted)
+         VALUES ('mem_other', 'hh_default', 'other@example.com', 'Other', '#E93D82', 'en', 'member', 1, 2, 1, 0)`,
+      ),
+    ]);
+  }
+
+  const memberRow = async (id: string) =>
+    (await env.DB.prepare(`SELECT * FROM members WHERE id = ?`).bind(id).first<Record<string, unknown>>())!;
+
+  it("lets a member change their own name, language and default account", async () => {
+    await seedMembers();
+    const own = await memberRow("mem_other");
+    await push([{ table: "members", row: { ...own, display_name: "Лена", locale: "ru", updated_at: 50 } }], 0, otherMember);
+
+    const after = await memberRow("mem_other");
+    expect(after.display_name).toBe("Лена");
+    expect(after.locale).toBe("ru");
+  });
+
+  it("ignores a role, deletion or email change on your own row", async () => {
+    await seedMembers();
+    const own = await memberRow("mem_other");
+    await push(
+      [{ table: "members", row: { ...own, role: "owner", deleted: 1, email: "x@evil.test", updated_at: 50 } }],
+      0,
+      otherMember,
+    );
+
+    const after = await memberRow("mem_other");
+    expect(after.role).toBe("member");
+    expect(after.deleted).toBe(0);
+    expect(after.email).toBe("other@example.com");
+  });
+
+  it("refuses another member's row and sends the stored one back", async () => {
+    await seedMembers();
+    const owner = await memberRow("mem_test");
+    const { conflicts } = await push(
+      [{ table: "members", row: { ...owner, deleted: 1, display_name: "Gone", updated_at: 50 } }],
+      0,
+      otherMember,
+    );
+
+    const after = await memberRow("mem_test");
+    expect(after.deleted).toBe(0);
+    expect(after.display_name).toBe("Test");
+    expect(conflicts.some((c) => c.table === "members" && c.row.id === "mem_test")).toBe(true);
+  });
+});

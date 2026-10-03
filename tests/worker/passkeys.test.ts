@@ -2,6 +2,7 @@ import { env } from "cloudflare:test";
 import { beforeEach, describe, expect, it } from "vitest";
 import {
   claimOptions,
+  consumeInvite,
   createInvite,
   createSession,
   destroySession,
@@ -92,6 +93,21 @@ describe("invites", () => {
     await expect(inviteOptions(env.DB, request(), "made-up")).rejects.toMatchObject({
       status: 403,
     });
+  });
+
+  it("lets exactly one of two racing sign-ups use a single invite", async () => {
+    await seedMember();
+    await createInvite(env.DB, testMember.id);
+    const { token_hash } = (await env.DB.prepare(`SELECT token_hash FROM invites`).first<{
+      token_hash: string;
+    }>())!;
+
+    // Both passed the validity check before either marked it; only one may go on to a member.
+    const [first, second] = await Promise.all([
+      consumeInvite(env.DB, token_hash),
+      consumeInvite(env.DB, token_hash),
+    ]);
+    expect([first, second].filter(Boolean)).toHaveLength(1);
   });
 
   it("expires", async () => {

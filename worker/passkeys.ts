@@ -233,13 +233,28 @@ export async function inviteVerify(
   const parsed = await verifyRegistration(db, request, body.challengeId, "invite", body.response, inviteHash);
   // Marked used *before* the member lands: a failure between the two wastes an invite, which the
   // owner can reissue in a tap — the other order could let one link mint two members.
-  await db
-    .prepare(`UPDATE invites SET used_at = ? WHERE token_hash = ? AND used_at IS NULL`)
-    .bind(Date.now(), inviteHash)
-    .run();
+  if (!(await consumeInvite(db, inviteHash))) {
+    throw new AuthFlowError("invite is invalid or expired", 403);
+  }
   const member = await createMember(db, body.name, "member");
   await storeCredential(db, member.id, parsed, body.name);
   return { member, sessionToken: await createSession(db, member.id) };
+}
+
+/**
+ * Marks an invite used, and says whether this call was the one that did.
+ *
+ * Whoever marks it first gets the member. Two requests racing on one link both pass the validity
+ * check before either marks it; the update's own `used_at IS NULL` guard lets exactly one of them
+ * through, but only if its result is read — unread, the second request went on to mint a second
+ * member from a single-use invite.
+ */
+export async function consumeInvite(db: D1Database, inviteHash: string): Promise<boolean> {
+  const result = await db
+    .prepare(`UPDATE invites SET used_at = ? WHERE token_hash = ? AND used_at IS NULL`)
+    .bind(Date.now(), inviteHash)
+    .run();
+  return result.meta.changes === 1;
 }
 
 /* ------------------------------------------------------------------------------ login */

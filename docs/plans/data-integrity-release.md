@@ -204,7 +204,7 @@ scheme: 1.3.9, 1.4.0, 1.4.1, …
   - After deploy: trigger the cron once (or wait a night), download the snapshot, run
     `npm run db:restore -- <file> --local` and open the local app against it.
 
-### Phase 6 — Members can only change themselves; one invite, one member (I, J)
+### Phase 6 — Members can only change themselves; one invite, one member (I, J) — shipped 1.4.4
 
 - **Goal:** sync can't be used to promote, rename or delete another member, and an invite is
   single-use under concurrency.

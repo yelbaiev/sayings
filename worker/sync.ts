@@ -60,6 +60,27 @@ export async function handleSync(
     };
 
     /*
+     * Members: your own row only, and only the parts that are yours to change.
+     *
+     * The app only ever writes the caller's own name, language and default account. The server used
+     * to accept any member row as sent, so one member could push `role: "owner"` for themselves —
+     * and create invites — or `deleted: 1` for the owner, after which the owner's passkey and
+     * session were refused. Another member's row is refused and the stored one sent back so the
+     * client heals; on your own row, role, email, deletion, colour and creation date come from the
+     * stored row, never the payload.
+     */
+    if (change.table === "members") {
+      const storedMember = await readRow(db, "members", String(candidate.id));
+      if (candidate.id !== member.id || !storedMember) {
+        if (storedMember) conflicts.push({ table: "members", row: storedMember });
+        continue;
+      }
+      for (const field of ["role", "email", "deleted", "avatar_color", "created_at"]) {
+        candidate[field] = storedMember[field];
+      }
+    }
+
+    /*
      * A transaction priced by a client older than 1.4.0 arrives without `fx_base`. Left out, the
      * insert fell back to the column default 'UAH' whatever the household's base, and a later base
      * change skipped the row as already converted. The client priced it against the base it knew,

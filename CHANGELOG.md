@@ -1,5 +1,10 @@
 # Changelog
 
+## Version 1.4.4
+
+- Fixed: a household member could make themselves the owner, or remove the owner, by sending a changed member record through sync. Each member can now change only their own name, language and default account
+- Fixed: opening one invite link twice at the same moment could create two members; an invite now creates exactly one
+
 ## Version 1.4.3
 
 - Fixed: a nightly backup restored onto a fresh database left nobody able to sign in, reset the main currency to hryvnia, read every exchange rate as hryvnia-based, and stopped phones receiving new changes. Backups now carry passkeys (public keys only), the main currency and currency list, full exchange rates, the app's settings and the sync counter
