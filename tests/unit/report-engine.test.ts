@@ -1,10 +1,12 @@
 import type { Account, Category, Member, Transaction } from "@shared/schema";
 import { describe, expect, it } from "vitest";
 import {
+  authorOf,
   cashflowByAccount,
   cashflowOverTime,
   categoryMatrix,
   categoryTrends,
+  countsForMemberReport,
   matrixToTsv,
   monthOverview,
   netWorthOverTime,
@@ -536,6 +538,23 @@ describe("spendByMember", () => {
       "2026-08-31",
     );
     expect(byMember).toHaveLength(1);
+  });
+
+  it("opens a tap-through list with exactly the rows the figure counted", () => {
+    // The list used to filter by author alone: every transaction the person ever entered,
+    // transfers included, under a row that counted one period.
+    const members = [member("m1", "Me")];
+    const rows = [
+      tx({ occurred_on: "2026-08-05", updated_by: "m1", amount_minor: 100_000 }),
+      tx({ occurred_on: "2025-01-05", updated_by: "m1", amount_minor: 50_000 }),
+      tx({ occurred_on: "2026-08-06", updated_by: "m1", kind: "transfer", category_id: null }),
+    ];
+    const [row] = spendByMember(rows, members, "2026-08-01", "2026-08-31");
+    const listed = rows.filter(
+      (t) => authorOf(t) === "m1" && countsForMemberReport(t, "2026-08-01", "2026-08-31"),
+    );
+    expect(listed).toHaveLength(row!.count);
+    expect(listed).toHaveLength(1);
   });
 });
 

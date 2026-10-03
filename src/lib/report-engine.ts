@@ -458,6 +458,23 @@ export interface MemberSpendRow {
   count: number;
 }
 
+/** Who entered a transaction. The per-member report answers "who spends", and editing is not
+ *  spending; updated_by is the fallback for rows older than created_by. */
+export function authorOf(tx: Transaction): string {
+  return tx.created_by ?? tx.updated_by ?? "";
+}
+
+/**
+ * Whether a row belongs in the per-member report: inside the period, and money that came in or
+ * went out (transfers and zero rows are neither). Shared with the report's tap-through list —
+ * that list once filtered by author alone, so a row counting a year opened every transaction the
+ * person had ever entered, transfers included.
+ */
+export function countsForMemberReport(tx: Transaction, fromIso: string, toIso: string): boolean {
+  if (tx.occurred_on < fromIso || tx.occurred_on > toIso) return false;
+  return signedMinor(tx.kind, tx.base_amount_minor) !== 0;
+}
+
 export function spendByMember(
   transactions: Transaction[],
   members: Member[],
@@ -467,12 +484,9 @@ export function spendByMember(
   const rows = new Map<string, { expenses: Minor; income: Minor; count: number }>();
 
   for (const tx of transactions) {
-    if (tx.occurred_on < fromIso || tx.occurred_on > toIso) continue;
+    if (!countsForMemberReport(tx, fromIso, toIso)) continue;
     const signed = signedMinor(tx.kind, tx.base_amount_minor);
-    if (signed === 0) continue;
-
-    // The per-member report answers "who spends", and editing is not spending.
-    const id = tx.created_by ?? tx.updated_by ?? "";
+    const id = authorOf(tx);
     const row = rows.get(id) ?? { expenses: 0, income: 0, count: 0 };
     if (signed < 0) row.expenses += -signed;
     else row.income += signed;

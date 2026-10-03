@@ -8,10 +8,12 @@ import { useLatestRates } from "~/db/useRates";
 import { TransactionRow } from "~/features/transactions/TransactionRow";
 import { CashflowChart, DonutChart, PeriodStrip, Sparkline, TrendChart } from "./charts";
 import {
+  authorOf,
   cashflowByAccount,
   cashflowOverTime,
   categoryMatrix,
   categoryTrends,
+  countsForMemberReport,
   matrixToTsv,
   monthOverview,
   netWorthOverTime,
@@ -443,7 +445,9 @@ export function ReportsPage() {
               onClick={() =>
                 drill(
                   row.member.display_name,
-                  (tx) => (tx.created_by ?? tx.updated_by) === row.member.id,
+                  (tx) =>
+                    authorOf(tx) === row.member.id &&
+                    countsForMemberReport(tx, range.from, range.to),
                 )
               }
             >

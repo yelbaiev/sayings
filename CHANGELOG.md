@@ -1,5 +1,9 @@
 # Changelog
 
+## Version 1.3.7
+
+- Fixed: in Reports → By member, tapping a person opened every transaction they had ever entered, transfers included. It now lists exactly what their row counts: the report's period, without transfers
+
 ## Version 1.3.6
 
 - Changed: the Reports table shows the newest month or year first, so the period you're asking about is on screen without scrolling sideways
