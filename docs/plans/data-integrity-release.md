@@ -60,7 +60,7 @@ the rule for I.
 Each phase is one commit, one version bump, one `npm run deploy`. Versions follow the workspace
 scheme: 1.3.9, 1.4.0, 1.4.1, …
 
-### Phase 1 — Sync never skips a row (A, B)
+### Phase 1 — Sync never skips a row (A, B) — shipped 1.3.9
 
 - **Goal:** a device that is any number of rows behind always catches up completely.
 - **Files in scope:** `worker/sync.ts`, `worker/db.ts`, `tests/worker/sync.test.ts`.
@@ -94,7 +94,7 @@ scheme: 1.3.9, 1.4.0, 1.4.1, …
   - After deploy: on one phone, Settings → reset local mirror. The row count afterwards matches
     `SELECT COUNT(*) FROM transactions WHERE deleted = 0`.
 
-### Phase 2 — Every priced row says its base, and corrections reach phones (C, D)
+### Phase 2 — Every priced row says its base, and corrections reach phones (C, D) — shipped 1.4.0
 
 - **Goal:** `fx_base` is always true, and the nightly reconcile is visible to clients.
 - **Files in scope:** the six writers listed in D, `src/lib/fx.ts`, `worker/fx/index.ts`,

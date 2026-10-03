@@ -1,5 +1,6 @@
 import { CURRENCIES, SOURCE_PIVOT, type Currency, type RateSource } from "@shared/currency";
-import { householdCurrencies } from "../db";
+import { HOUSEHOLD_ID } from "@shared/schema";
+import { bumpRevStatement, householdCurrencies, REV_IN_BATCH } from "../db";
 import { ecb } from "./ecb";
 import { nbu } from "./nbu";
 import { crossRate, sourceFor } from "./resolve";
@@ -280,16 +281,24 @@ export async function runDailyFxUpdate(db: D1Database, today: string): Promise<n
  * the flag but not the column — is still repaired.
  */
 export async function reconcileEstimatedRates(db: D1Database): Promise<number> {
+  const { base } = await householdCurrencies(db);
+  /*
+   * Rates in the household's base only, and rows priced in it only. Without the base filter the
+   * nearest-prior rate could be a row still in the previous base while a base change is part-way
+   * through, and a row not yet in the current base is the reprice's to convert, not this job's.
+   */
   const { results } = await db
     .prepare(
       `SELECT t.id, t.amount_minor, t.currency, t.occurred_on,
               (SELECT rate FROM fx_rates f
-                WHERE f.quote = t.currency AND f.on_date <= t.occurred_on
+                WHERE f.quote = t.currency AND f.base = ? AND f.on_date <= t.occurred_on
                 ORDER BY f.on_date DESC LIMIT 1) AS resolved_rate
          FROM transactions t
         WHERE t.fx_estimated = 1 AND t.fx_source != 'manual' AND t.deleted = 0
+          AND t.fx_base = ?
         LIMIT 500`,
     )
+    .bind(base, base)
     .all<{
       id: string;
       amount_minor: number;
@@ -301,19 +310,30 @@ export async function reconcileEstimatedRates(db: D1Database): Promise<number> {
   const fixable = results.filter((row) => row.resolved_rate !== null);
   if (fixable.length === 0) return 0;
 
-  await db.batch(
-    fixable.map((row) => {
+  /*
+   * A fresh rev, in the same batch as the rows it labels, and a new updated_at.
+   *
+   * This used to rewrite the price fields and leave both alone. Clients pull "everything above my
+   * cursor", so a corrected row at its old rev was a correction no phone ever received: the server
+   * held the real figure while every device kept showing the estimate — and the next edit on a
+   * phone pushed the estimate straight back over it.
+   */
+  const now = Date.now();
+  await db.batch([
+    bumpRevStatement(db),
+    ...fixable.map((row) => {
       const scaled = row.amount_minor * row.resolved_rate!;
-      const base = Math.sign(scaled) * Math.round(Math.abs(scaled));
+      const baseAmount = Math.sign(scaled) * Math.round(Math.abs(scaled));
       return db
         .prepare(
           `UPDATE transactions
-              SET base_amount_minor = ?, fx_rate = ?, fx_estimated = 0, fx_source = 'auto'
+              SET base_amount_minor = ?, fx_rate = ?, fx_estimated = 0, fx_source = 'auto',
+                  rev = ${REV_IN_BATCH}, updated_at = ?
             WHERE id = ?`,
         )
-        .bind(base, row.resolved_rate, row.id);
+        .bind(baseAmount, row.resolved_rate, HOUSEHOLD_ID, now, row.id);
     }),
-  );
+  ]);
 
   return fixable.length;
 }

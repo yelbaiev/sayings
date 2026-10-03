@@ -11,6 +11,7 @@ import {
   changesSince,
   changesThrough,
   existingUpdatedAt,
+  householdCurrencies,
   readRow,
   upsertStatement,
   type MemberRecord,
@@ -44,17 +45,30 @@ export async function handleSync(
   const { since, changes } = parsed.data;
 
   const conflicts: SyncResponse["conflicts"] = [];
+  /** Read once, and only if a pushed transaction needs it. */
+  let base: string | undefined;
 
   for (const change of changes) {
     const schema = tableSchemas[change.table];
 
     // The client may not write to another household, nor forge authorship. Both are set
     // server-side from the verified identity rather than trusted from the payload.
-    const candidate = {
+    const candidate: Record<string, unknown> = {
       ...change.row,
       household_id: HOUSEHOLD_ID,
       updated_by: member.id,
     };
+
+    /*
+     * A transaction priced by a client older than 1.4.0 arrives without `fx_base`. Left out, the
+     * insert fell back to the column default 'UAH' whatever the household's base, and a later base
+     * change skipped the row as already converted. The client priced it against the base it knew,
+     * which is the current one, so that is what it is stamped with.
+     */
+    if (change.table === "transactions" && candidate.fx_base == null) {
+      base ??= (await householdCurrencies(db)).base;
+      candidate.fx_base = base;
+    }
 
     const validated = schema.safeParse(candidate);
     if (!validated.success) {

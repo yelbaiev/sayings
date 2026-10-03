@@ -1,5 +1,11 @@
 # Changelog
 
+## Version 1.4.0
+
+- Fixed: when an entry saved offline got its real exchange rate overnight, the corrected figure stayed on the server and never reached the phones — and the next edit on a phone put the estimate back
+- Fixed: every new entry was recorded as priced in hryvnia whatever the main currency was, so a later change of main currency could skip converting it
+- Fixed: the overnight rate correction could pick a rate quoted in another currency while a main-currency change was still in progress
+
 ## Version 1.3.9
 
 - Fixed: a phone catching up on more than 2,000 changes in one table (a new phone, a reset, a big import) received the first 2,000 and silently never got the rest

@@ -403,6 +403,7 @@ export function EntrySheet({
           fx_rate: rate,
           fx_estimated: estimated ? 1 : 0,
           fx_source: manualRate !== null ? "manual" : estimated ? "estimated" : "auto",
+          fx_base: baseCurrency,
           note: note.trim() || null,
           payee: null,
           tags: null,
@@ -459,6 +460,9 @@ export function EntrySheet({
        * would replace a deliberate correction with an approximation, silently.
        */
       fx_source: manualRate !== null ? "manual" : estimated ? "estimated" : "auto",
+      // What base_amount_minor is in. Without it the server filled in its column default (hryvnia)
+      // whatever the base actually was, and a later base change then skipped the row as done.
+      fx_base: baseCurrency,
       note: note.trim() || null,
       payee: editing?.payee ?? null,
       tags: null,

@@ -106,12 +106,19 @@ export async function pricingFor(
   currency: Currency,
   onDate: string,
   base: Currency,
-): Promise<{ base_amount_minor: number; fx_rate: number; fx_estimated: 0 | 1; fx_source: string }> {
+): Promise<{
+  base_amount_minor: number;
+  fx_rate: number;
+  fx_estimated: 0 | 1;
+  fx_source: string;
+  fx_base: Currency;
+}> {
   const { rate, estimated } = await rateFor(currency, onDate, base);
   return {
     base_amount_minor: Math.round(amountMinor * rate),
     fx_rate: rate,
     fx_estimated: estimated ? 1 : 0,
     fx_source: estimated ? "estimated" : "auto",
+    fx_base: base,
   };
 }

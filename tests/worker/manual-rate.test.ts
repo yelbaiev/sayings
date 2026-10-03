@@ -1,5 +1,6 @@
 import { env } from "cloudflare:test";
 import { beforeEach, describe, expect, it } from "vitest";
+import { currentRev } from "../../worker/db";
 import { reconcileEstimatedRates } from "../../worker/fx";
 import { handleSync } from "../../worker/sync";
 import { accountRow, resetHousehold, testMember, txRow } from "./helpers";
@@ -138,5 +139,55 @@ describe("reconcileEstimatedRates", () => {
 
     expect(await reconcileEstimatedRates(env.DB)).toBe(0);
     expect((await read()).fx_source).toBe("estimated");
+  });
+});
+
+describe("reconcileEstimatedRates — reaching the phones", () => {
+  it("gives a corrected row a new rev, so a pull from the old cursor delivers it", async () => {
+    await saveTx({ fx_rate: 1, base_amount_minor: AMOUNT_MINOR, fx_estimated: 1, fx_source: "estimated" });
+    const cursor = await currentRev(env.DB);
+    await seedRate("2026-08-01", "EUR", 45);
+
+    expect(await reconcileEstimatedRates(env.DB)).toBe(1);
+
+    const { changes } = await handleSync(env.DB, testMember, { since: cursor, changes: [] });
+    const delivered = changes.find((c) => c.table === "transactions" && c.row.id === "tx_eur");
+    expect(delivered).toBeDefined();
+    expect(delivered!.row.base_amount_minor).toBe(450_000);
+  });
+
+  it("uses only rates in the household's base", async () => {
+    await saveTx({ fx_rate: 1, base_amount_minor: AMOUNT_MINOR, fx_estimated: 1, fx_source: "estimated" });
+    // A euro rate quoted in dollars — left over mid base change — must not price a hryvnia row.
+    await env.DB.prepare(
+      `INSERT INTO fx_rates (on_date, quote, rate, source, base) VALUES ('2026-08-03', 'EUR', 1.1, 'ecb', 'USD')`,
+    ).run();
+    expect(await reconcileEstimatedRates(env.DB)).toBe(0);
+  });
+});
+
+describe("fx_base on push", () => {
+  it("stamps a transaction sent without it with the household's base", async () => {
+    // resetHousehold does not touch the base, so this test puts it back itself.
+    await env.DB.prepare(`UPDATE households SET base_currency = 'EUR'`).run();
+    try {
+      const row = txRow({ id: "tx_old_client", account_id: "acc_eur", currency: "EUR" });
+      delete row.fx_base;
+      await handleSync(env.DB, testMember, { since: 0, changes: [{ table: "transactions", row }] });
+
+      const stored = await env.DB.prepare(
+        `SELECT fx_base FROM transactions WHERE id = 'tx_old_client'`,
+      ).first<{ fx_base: string }>();
+      expect(stored!.fx_base).toBe("EUR");
+    } finally {
+      await env.DB.prepare(`UPDATE households SET base_currency = 'UAH'`).run();
+    }
+  });
+
+  it("keeps the base a current client sends", async () => {
+    await saveTx({ fx_base: "UAH" });
+    const stored = await env.DB.prepare(`SELECT fx_base FROM transactions WHERE id = 'tx_eur'`)
+      .first<{ fx_base: string }>();
+    expect(stored!.fx_base).toBe("UAH");
   });
 });

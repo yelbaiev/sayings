@@ -79,6 +79,8 @@ export function QuickTiles() {
         base_amount_minor: Math.round(template.amount_minor * fx.rate),
         fx_rate: fx.rate,
         fx_estimated: fx.estimated ? 1 : 0,
+        fx_source: fx.estimated ? "estimated" : "auto",
+        fx_base: baseCurrency,
         note: template.note ?? null,
         payee: null,
         tags: null,

@@ -193,6 +193,8 @@ export function ImportPage({ onClose }: { onClose: (toast?: ToastSpec) => void }
           base_amount_minor: base,
           fx_rate: fx.rate,
           fx_estimated: fx.estimated ? 1 : 0,
+          fx_source: fx.estimated ? "estimated" : "auto",
+          fx_base: baseCurrency,
           note: row.note,
           payee: row.payee,
           tags: null,
