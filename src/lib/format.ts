@@ -149,9 +149,12 @@ export function formatAmount(
   cents = false,
 ): string {
   const magnitude = Math.abs(minorToMajor(amountMinor, currency));
+  // The currency's own decimals: yen have none, dinar three. A fixed 2 printed "¥1,000.00" and
+  // rounded away the dinar's last digit.
+  const digits = cents ? minorUnitDigits(currency) : 0;
   const body = new Intl.NumberFormat(locale, {
-    minimumFractionDigits: cents ? 2 : 0,
-    maximumFractionDigits: cents ? 2 : 0,
+    minimumFractionDigits: digits,
+    maximumFractionDigits: digits,
   }).format(magnitude);
   return amountMinor < 0 ? `−${body}` : body;
 }

@@ -2,6 +2,7 @@ import type { Locale } from "@shared/currency";
 import { SYNCED_TABLES } from "@shared/schema";
 import { db } from "~/db/dexie";
 import { todayIso } from "~/lib/format";
+import { zipStore, type ZipEntry } from "~/lib/zip";
 
 /**
  * Client-side export of everything.
@@ -28,14 +29,22 @@ export function toCsv(rows: Record<string, unknown>[]): string {
   return lines.join("\n");
 }
 
-function download(filename: string, content: string, type: string): void {
+function download(filename: string, content: BlobPart, type: string): void {
   const url = URL.createObjectURL(new Blob([content], { type }));
   const link = document.createElement("a");
   link.href = url;
   link.download = filename;
   link.click();
-  URL.revokeObjectURL(url);
+  // Not revoked straight away: Safari reads the URL after click() returns, and revoking at once
+  // could cancel the download it had only just started.
+  setTimeout(() => URL.revokeObjectURL(url), 60_000);
 }
+
+/**
+ * A byte-order mark in front of each CSV. Excel decides a CSV's encoding by sniffing, and without
+ * one it reads UTF-8 as the system code page: every Cyrillic name and note came out as mojibake.
+ */
+const BOM = "\uFEFF";
 
 export interface ExportBundle {
   exported_at: string;
@@ -61,23 +70,30 @@ export async function buildExport(): Promise<ExportBundle> {
 }
 
 /**
- * Downloads one JSON bundle plus a CSV per table.
+ * The files an export contains: one JSON bundle plus a CSV per non-empty table.
  *
  * Both formats deliberately: JSON round-trips exactly for a restore, CSV opens in a
  * spreadsheet so the data is legible without any software of ours.
  */
-export async function exportEverything(_locale: Locale): Promise<void> {
-  const bundle = await buildExport();
-  const stamp = todayIso();
-
-  download(
-    `sayings-${stamp}.json`,
-    JSON.stringify(bundle, null, 2),
-    "application/json",
-  );
-
+export function exportFiles(bundle: ExportBundle, stamp: string): ZipEntry[] {
+  const encoder = new TextEncoder();
+  const files: ZipEntry[] = [
+    { name: `sayings-${stamp}.json`, data: encoder.encode(JSON.stringify(bundle, null, 2)) },
+  ];
   for (const [table, rows] of Object.entries(bundle.tables)) {
     if (rows.length === 0) continue;
-    download(`sayings-${table}-${stamp}.csv`, toCsv(rows), "text/csv;charset=utf-8");
+    files.push({ name: `sayings-${table}-${stamp}.csv`, data: encoder.encode(BOM + toCsv(rows)) });
   }
+  return files;
+}
+
+/**
+ * Downloads everything as a single zip.
+ *
+ * One file, because one tap used to start nine downloads and phones kept only the first.
+ */
+export async function exportEverything(_locale: Locale): Promise<void> {
+  const stamp = todayIso();
+  const archive = zipStore(exportFiles(await buildExport(), stamp));
+  download(`sayings-${stamp}.zip`, archive, "application/zip");
 }

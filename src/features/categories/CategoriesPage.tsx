@@ -1,12 +1,14 @@
-import type { Category } from "@shared/schema";
+import type { Budget, Category, Recurring } from "@shared/schema";
 import { useState } from "react";
 import { useApp } from "~/app/AppContext";
-import { newId, put } from "~/db/mutations";
+import { db } from "~/db/dexie";
+import { newId, put, remove } from "~/db/mutations";
 import { useCategories, useCategoryTransactionCount, useTransactions } from "~/db/queries";
 import { Chip, Field, FieldGroup, IconChip, Segmented, Sheet } from "~/ui";
 import { Button } from "~/ui/Button";
 import { cn } from "~/lib/cn";
 import { LIST, PAGE, PAGE_TITLE, ROW, ROW_SUB, ROW_TITLE } from "~/ui/recipes";
+import { mergeWrites } from "./merge";
 
 const ICON_CHOICES = [
   "🛒", "✈️", "🏠", "🚗", "⚽", "👴", "👶", "🍽️", "👕", "🎁",
@@ -140,13 +142,22 @@ function CategorySheet({
    *
    * Rewriting history rather than aliasing means past reports stay consistent with present
    * ones — an alias would leave the old name showing in a report run over an old month.
+   * Recurring payments and budgets follow; see mergeWrites.
    */
   async function merge() {
     if (!category || !mergeTarget) return;
-    const affected = transactions.filter((tx) => tx.category_id === category.id);
-    for (const tx of affected) {
-      await put("transactions", { ...tx, category_id: mergeTarget } as never, me);
-    }
+    const writes = mergeWrites(
+      category.id,
+      mergeTarget,
+      transactions,
+      (await db.recurring.toArray()) as Recurring[],
+      (await db.budgets.toArray()) as Budget[],
+    );
+    for (const row of writes.transactions) await put("transactions", row as never, me);
+    for (const row of writes.recurring) await put("recurring", row as never, me);
+    for (const row of writes.budgets) await put("budgets", row as never, me);
+    for (const id of writes.removeBudgetIds) await remove("budgets", id, me);
+
     await put("categories", { ...category, archived: 1 } as never, me);
     onClose();
   }

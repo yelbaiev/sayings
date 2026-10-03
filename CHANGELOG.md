@@ -1,5 +1,14 @@
 # Changelog
 
+## Version 1.4.5
+
+- Fixed: a rollover budget counted the oldest three years of history instead of the most recent three, so the carried-over amount could be badly off — even the wrong sign
+- Fixed: merging categories left recurring payments and budgets on the old, archived category; they now move too (if both had a budget for the same period, the target's is kept)
+- Changed: Export now downloads one zip instead of up to nine files — phones kept only the first of them
+- Fixed: exported CSV files showed Cyrillic names and notes as gibberish in Excel
+- Fixed: the hint under an account's currency was in English only
+- Fixed: amounts in yen were shown with ".00", and Tunisian dinar lost its third decimal
+
 ## Version 1.4.4
 
 - Fixed: a household member could make themselves the owner, or remove the owner, by sending a changed member record through sync. Each member can now change only their own name, language and default account

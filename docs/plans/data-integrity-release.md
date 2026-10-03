@@ -225,14 +225,14 @@ scheme: 1.3.9, 1.4.0, 1.4.1, …
     - Two parallel `inviteVerify` calls produce one member.
   - Existing passkey and members suites green.
 
-### Phase 7 — Leftovers
+### Phase 7 — Leftovers — shipped 1.4.5
 
 - **Goal:** the small items from the check, none needing the server.
 - **Behaviour change:**
   - K: the rollover walk starts at `max(start, addMonths(month, -36))`.
   - Merging categories also moves recurring templates and budgets from the merged category.
-  - CSV export gets a UTF-8 BOM; multiple files are zipped, or sent one per tap. Pick whichever is
-    smaller once `export.ts` is open.
+  - CSV export gets a UTF-8 BOM; everything is one zip (`src/lib/zip.ts`, stored entries, no
+    dependency).
   - `AccountsPage.tsx` currency hint goes through i18n.
   - `formatAmount(cents=true)` uses the currency's own digits.
 - **Files in scope:**

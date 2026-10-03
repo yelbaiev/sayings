@@ -222,7 +222,7 @@ function AccountSheet({
         label={t("accounts.currency")}
         hint={
           account
-            ? "Changing this does not reinterpret existing transactions."
+            ? t("accounts.currencyHint")
             : undefined
         }
       >

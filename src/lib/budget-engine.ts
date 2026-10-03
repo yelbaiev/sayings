@@ -87,8 +87,15 @@ export function rolloverCredit(
   if (!budget.rollover) return 0;
 
   // A month-specific budget has no history to carry.
-  const start = budget.period_month ?? earliestMonth(transactions, budget.category_id);
-  if (!start || start >= month) return 0;
+  const earliest = budget.period_month ?? earliestMonth(transactions, budget.category_id);
+  if (!earliest || earliest >= month) return 0;
+  /*
+   * The most recent `maxMonths`, not the first. The walk used to start at the earliest month and
+   * stop after the cap, so with a longer history (the Saldo import goes back years) it counted the
+   * oldest three years and none of the months just before the one being read.
+   */
+  const windowStart = addMonths(month, -maxMonths);
+  const start = earliest > windowStart ? earliest : windowStart;
 
   let credit = 0;
   let cursor = start;
