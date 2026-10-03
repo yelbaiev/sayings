@@ -123,6 +123,8 @@ const ru: Dictionary = {
   },
   "history.filterAccount": "Счёт",
   "history.filterCategory": "Категория",
+  "history.allExpenses": "Все расходы",
+  "history.allIncome": "Все доходы",
   "history.filterMember": "Кто",
   "history.selected": {
     one: "Выбрано {count}",

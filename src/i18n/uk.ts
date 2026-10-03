@@ -126,6 +126,8 @@ const uk: Dictionary = {
   },
   "history.filterAccount": "Рахунок",
   "history.filterCategory": "Категорія",
+  "history.allExpenses": "Усі витрати",
+  "history.allIncome": "Усі доходи",
   "history.filterMember": "Хто",
   "history.selected": {
     one: "Вибрано {count}",

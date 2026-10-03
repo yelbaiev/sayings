@@ -31,6 +31,11 @@ import { TransactionRow } from "./TransactionRow";
  * DOM locks up mobile Safari for seconds — the list has to render only what is on screen.
  */
 
+/* Category-filter values that mean a whole side rather than one category. Not valid ids, so they
+   cannot collide with one. */
+const ALL_EXPENSES = "kind:expense";
+const ALL_INCOME = "kind:income";
+
 type Row =
   | { kind: "heading"; date: string; total: number }
   | { kind: "transaction"; transaction: Transaction };
@@ -61,7 +66,15 @@ export function HistoryPage() {
   const setAccountId = (next: string | undefined) => {
     navigate(next ? `/history?account=${encodeURIComponent(next)}` : "/history", { replace: true });
   };
-  const [categoryId, setCategoryId] = useState<string | undefined>();
+  /**
+   * One category, or a whole side of the ledger. The two "all" choices sit in the same dropdown
+   * because that is where they were looked for: "show me everything we spent" is a category
+   * question to the person asking it, even though it filters on kind.
+   */
+  const [categoryFilter, setCategoryFilter] = useState<string | undefined>();
+  const kindFilter =
+    categoryFilter === ALL_EXPENSES ? "expense" : categoryFilter === ALL_INCOME ? "income" : undefined;
+  const categoryId = kindFilter ? undefined : categoryFilter;
   const [memberId, setMemberId] = useState<string | undefined>();
   const [editing, setEditing] = useState<Transaction | undefined>();
   const [toast, setToast] = useState<ToastSpec | null>(null);
@@ -77,10 +90,11 @@ export function HistoryPage() {
     ...(search ? { search } : {}),
     ...(accountId ? { accountId } : {}),
     ...(categoryId ? { categoryId } : {}),
+    ...(kindFilter ? { kind: kindFilter } : {}),
     ...(memberId ? { memberId } : {}),
   });
 
-  const hasFilters = Boolean(search || accountId || categoryId || memberId);
+  const hasFilters = Boolean(search || accountId || categoryFilter || memberId);
   /* The chosen card: what it holds now, and every row that touches it. Null unless one is chosen. */
   const selected = useAccountLedger(accountId);
 
@@ -94,7 +108,7 @@ export function HistoryPage() {
    *
    * Accumulated over all of the account's rows in date order, never over the visible slice.
    */
-  const showRunning = Boolean(selected) && !search && !categoryId && !memberId;
+  const showRunning = Boolean(selected) && !search && !categoryFilter && !memberId;
   const running = useMemo(
     () =>
       showRunning && selected
@@ -244,12 +258,14 @@ export function HistoryPage() {
         </select>
 
         <select
-          value={categoryId ?? ""}
-          onChange={(event) => setCategoryId(event.target.value || undefined)}
+          value={categoryFilter ?? ""}
+          onChange={(event) => setCategoryFilter(event.target.value || undefined)}
           aria-label={t("history.filterCategory")}
           className="w-auto min-w-[120px]"
         >
           <option value="">{t("history.filterCategory")}</option>
+          <option value={ALL_EXPENSES}>{t("history.allExpenses")}</option>
+          <option value={ALL_INCOME}>{t("history.allIncome")}</option>
           {categories.map((c) => (
             <option key={c.id} value={c.id}>
               {c.name}
@@ -282,7 +298,7 @@ export function HistoryPage() {
             onClick={() => {
               setSearch("");
               setAccountId(undefined);
-              setCategoryId(undefined);
+              setCategoryFilter(undefined);
               setMemberId(undefined);
             }}
           >

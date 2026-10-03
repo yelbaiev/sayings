@@ -143,3 +143,16 @@ export function monthlyTotal(
     grandUsable: complete && byCurrency.size > 0,
   };
 }
+
+/**
+ * Each schedule belongs to the person who set it up, and only they see it or get prompted to post
+ * it. The ledger stays shared — the transactions a schedule posts are visible to everyone; it is
+ * the reminder that is personal.
+ *
+ * updated_by is the fallback for a row written by a client older than the column. A row with
+ * neither has no owner to hide it from, so it stays visible rather than vanishing for everybody.
+ */
+export function isMine(item: Pick<Recurring, "created_by" | "updated_by">, memberId: string): boolean {
+  const owner = item.created_by ?? item.updated_by;
+  return !owner || owner === memberId;
+}

@@ -1,5 +1,16 @@
 # Changelog
 
+## Version 1.3.6
+
+- Changed: the Reports table shows the newest month or year first, so the period you're asking about is on screen without scrolling sideways
+- Changed: the totals row in the Reports table sits at the top, right under the header
+- Fixed: the Reports table header scrolled away with the page; the header, the totals row and the category column now stay in place while you scroll
+- Added: transaction rows on Home and in a report's tap-through list show the date — History still groups by day headings instead
+- Fixed: the initial of whoever entered a transaction now sits on the row's right edge, under the amount
+- Changed: each recurring payment is shown only to the person who set it up, in Regular payments and in the "due" prompt on Home. Existing schedules go to whoever last posted or skipped them
+- Added: "All expenses" and "All income" in History's category filter
+- Fixed: the Member filter in History and the per-member report's list matched whoever last edited a transaction instead of who entered it
+
 ## Version 1.3.5
 
 - Fixed: a TypeScript build cache file was committed by mistake in 1.3.4; it is removed and now ignored

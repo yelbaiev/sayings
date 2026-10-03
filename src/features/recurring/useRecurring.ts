@@ -6,7 +6,7 @@ import { useApp } from "~/app/AppContext";
 import { db } from "~/db/dexie";
 import { newId, put, remove } from "~/db/mutations";
 import { rateFor } from "~/lib/fx";
-import { catchUp, dueRecurring, nextOccurrence } from "~/lib/recurring";
+import { catchUp, dueRecurring, isMine, nextOccurrence } from "~/lib/recurring";
 import { todayIso } from "~/lib/format";
 
 /**
@@ -17,11 +17,14 @@ import { todayIso } from "~/lib/format";
  * transaction), differing only in what triggers them.
  */
 export function useRecurringList(): Recurring[] {
+  const { me } = useApp();
   return (
     useLiveQuery(async () => {
       const rows = await db.recurring.toArray();
-      return rows.filter((r) => r.deleted === 0).sort((a, b) => a.next_on.localeCompare(b.next_on));
-    }) ?? []
+      return rows
+        .filter((r) => r.deleted === 0 && isMine(r, me.id))
+        .sort((a, b) => a.next_on.localeCompare(b.next_on));
+    }, [me.id]) ?? []
   );
 }
 

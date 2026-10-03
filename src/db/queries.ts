@@ -95,7 +95,8 @@ export function matchesFilters(tx: Transaction, filters: TransactionFilters): bo
   if (filters.to && tx.occurred_on > filters.to) return false;
   if (filters.kind && tx.kind !== filters.kind) return false;
   if (filters.categoryId && tx.category_id !== filters.categoryId) return false;
-  if (filters.memberId && tx.updated_by !== filters.memberId) return false;
+  // Who entered it, not who last edited it — the same attribution the row's avatar shows.
+  if (filters.memberId && (tx.created_by ?? tx.updated_by) !== filters.memberId) return false;
 
   // An account filter must include transfers *into* that account, or the account's own
   // statement would be missing half its movements.

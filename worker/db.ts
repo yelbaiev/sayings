@@ -104,6 +104,7 @@ export const TABLE_COLUMNS: Record<SyncedTable, readonly string[]> = {
     "day_of",
     "next_on",
     "active",
+    "created_by",
     "rev",
     "updated_at",
     "updated_by",

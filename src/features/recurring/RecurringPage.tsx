@@ -300,6 +300,8 @@ function RecurringSheet({
         day_of: dayOf,
         next_on: nextOn,
         active: active ? 1 : 0,
+        // Set once: editing keeps the original owner, so the schedule cannot drift between people.
+        created_by: item ? (item.created_by ?? item.updated_by ?? me.id) : me.id,
       } as never,
       me,
     );

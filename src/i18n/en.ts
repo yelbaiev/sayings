@@ -121,6 +121,8 @@ const en = {
   },
   "history.filterAccount": "Account",
   "history.filterCategory": "Category",
+  "history.allExpenses": "All expenses",
+  "history.allIncome": "All income",
   "history.filterMember": "Person",
   "history.selected": { one: "{count} selected", other: "{count} selected" },
   "history.recategorise": "Recategorise",

@@ -70,6 +70,10 @@ export function ReportsPage() {
     () => categoryMatrix(transactions, categories, kind, period, range.from, range.to),
     [transactions, categories, kind, period, range],
   );
+  /* Newest period first, so the month being asked about is the one already on screen rather than
+     the far end of a sideways scroll. The engine and the copied table stay chronological — a
+     spreadsheet reads left to right in time. */
+  const matrixPeriods = useMemo(() => [...matrix.periods].reverse(), [matrix.periods]);
 
   const overview = useMemo(
     () => monthOverview(transactions, categories, month),
@@ -177,18 +181,36 @@ export function ReportsPage() {
           </div>
 
           {/* Wide content scrolls inside its own container; the page itself must never
-              scroll horizontally. The category column stays pinned. */}
-          <div className={cn(LIST, "overflow-x-auto")}>
+              scroll horizontally. The box scrolls both ways and is capped below the viewport
+              height: a sticky header only sticks inside its scroll container, and one that only
+              scrolled sideways let the header leave with the page. The category column, the
+              header and the totals row under it all stay pinned. */}
+          <div className={cn(LIST, "max-h-[70dvh] overflow-auto")}>
             <table className="matrix">
               <thead>
                 <tr>
                   <th className="matrix__corner">{t("entry.category")}</th>
-                  {matrix.periods.map((bucket) => (
+                  {matrixPeriods.map((bucket) => (
                     <th key={bucket} className="matrix__period">
                       {period === "month" ? formatMonthShort(bucket, locale) : bucket}
                     </th>
                   ))}
                   <th className="matrix__period matrix__period--total">{t("reports.total")}</th>
+                </tr>
+                {/* Totals lead rather than trail: the column sum is the figure read first, and at the
+                    bottom of thirty categories it was the one that needed scrolling to. */}
+                <tr className="matrix__totals">
+                  <th scope="row" className="matrix__category">
+                    {kind === "expense" ? t("reports.totalExpenses") : t("reports.totalIncome")}
+                  </th>
+                  {matrixPeriods.map((bucket) => (
+                    <td key={bucket} className="matrix__cell matrix__cell--total">
+                      {formatAmount(matrix.totalsByPeriod.get(bucket) ?? 0, baseCurrency, locale)}
+                    </td>
+                  ))}
+                  <td className="matrix__cell matrix__cell--total">
+                    {formatAmount(matrix.grandTotal, baseCurrency, locale)}
+                  </td>
                 </tr>
               </thead>
               <tbody>
@@ -200,7 +222,7 @@ export function ReportsPage() {
                         {row.category.name}
                       </span>
                     </th>
-                    {matrix.periods.map((bucket) => {
+                    {matrixPeriods.map((bucket) => {
                       const value = row.byPeriod.get(bucket) ?? 0;
                       return (
                         <td key={bucket} className="matrix__cell">
@@ -234,20 +256,6 @@ export function ReportsPage() {
                     </td>
                   </tr>
                 ))}
-
-                <tr className="matrix__footer">
-                  <th scope="row" className="matrix__category">
-                    {kind === "expense" ? t("reports.totalExpenses") : t("reports.totalIncome")}
-                  </th>
-                  {matrix.periods.map((bucket) => (
-                    <td key={bucket} className="matrix__cell matrix__cell--total">
-                      {formatAmount(matrix.totalsByPeriod.get(bucket) ?? 0, baseCurrency, locale)}
-                    </td>
-                  ))}
-                  <td className="matrix__cell matrix__cell--total">
-                    {formatAmount(matrix.grandTotal, baseCurrency, locale)}
-                  </td>
-                </tr>
               </tbody>
             </table>
           </div>
@@ -433,7 +441,10 @@ export function ReportsPage() {
               type="button"
               className={cn(ROW, "hover:bg-accent active:bg-accent")}
               onClick={() =>
-                drill(row.member.display_name, (tx) => tx.updated_by === row.member.id)
+                drill(
+                  row.member.display_name,
+                  (tx) => (tx.created_by ?? tx.updated_by) === row.member.id,
+                )
               }
             >
               <IconChip icon="👤" color={row.member.avatar_color} />
@@ -451,7 +462,7 @@ export function ReportsPage() {
         <Sheet title={drillDown.title} onClose={() => setDrillDown(null)}>
           <div className={LIST}>
             {drillDown.rows.map((tx) => (
-              <TransactionRow key={tx.id} transaction={tx} lookups={lookups} />
+              <TransactionRow key={tx.id} transaction={tx} lookups={lookups} showDate />
             ))}
           </div>
         </Sheet>

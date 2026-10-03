@@ -4,7 +4,7 @@ import type { Account, Category, Member, Transaction } from "@shared/schema";
 import { useApp } from "~/app/AppContext";
 import { createPressGesture } from "~/lib/press-gesture";
 import { cn } from "~/lib/cn";
-import { formatMoney } from "~/lib/format";
+import { formatDateShort, formatMoney } from "~/lib/format";
 import { ROW, ROW_SUB, ROW_TITLE } from "~/ui/recipes";
 import { Amount, Avatar, IconChip } from "~/ui";
 import { TransferIcon } from "~/ui/icons";
@@ -29,6 +29,7 @@ export function TransactionRow({
   onLongPress,
   selected,
   runningMinor,
+  showDate,
 }: {
   transaction: Transaction;
   lookups: Lookups;
@@ -42,6 +43,11 @@ export function TransactionRow({
    * HistoryPage, which explains why it is not always shown.
    */
   runningMinor?: number | undefined;
+  /**
+   * Leads the subtitle with the day. History groups rows under day headings and leaves it off;
+   * every other list (Home's recent rows, a report's drill-down) has no heading to say when.
+   */
+  showDate?: boolean | undefined;
 }) {
   const { t, locale } = useApp();
 
@@ -58,10 +64,13 @@ export function TransactionRow({
   const icon = tx.kind === "transfer" ? <TransferIcon /> : (category?.icon ?? "❓");
   const color = tx.kind === "transfer" ? "var(--transfer)" : category?.color;
 
-  const subtitle =
+  const detail =
     tx.kind === "transfer"
       ? `${account?.name ?? "?"} → ${toAccount?.name ?? "?"}`
       : [account?.name, tx.note].filter(Boolean).join(" · ");
+  const subtitle = showDate
+    ? [formatDateShort(tx.occurred_on, locale), detail].filter(Boolean).join(" · ")
+    : detail;
 
   const Element = onClick ? "button" : "div";
 
@@ -109,7 +118,9 @@ export function TransactionRow({
         </span>
       </span>
 
-      <span className="shrink-0 text-right">
+      {/* A column with everything pushed to the right edge. The avatar is a block, so under
+          plain text-right it sat at the column's left, out of line with the amount above it. */}
+      <span className="flex shrink-0 flex-col items-end text-right">
         <Amount
           minor={tx.amount_minor}
           currency={tx.currency as Currency}

@@ -64,3 +64,17 @@ describe("the balance after a row", () => {
     expect([...figures].some((node) => /1\s*234/u.test(node.textContent ?? ""))).toBe(true);
   });
 });
+
+describe("the day on a row", () => {
+  /* History heads each day with a date; Home's recent list and a report's drill-down have no
+     heading, and a row there with no date was reported as "no date in the listing". */
+  it("leads the subtitle when asked for", () => {
+    renderInApp(<TransactionRow transaction={tx} lookups={lookups} showDate />);
+    expect(screen.getByText(/20.*Моно/u)).toBeTruthy();
+  });
+
+  it("is left off under History's day headings", () => {
+    renderInApp(<TransactionRow transaction={tx} lookups={lookups} />);
+    expect(screen.getByText("Моно")).toBeTruthy();
+  });
+});

@@ -277,6 +277,7 @@ export function HomePage() {
                 key={tx.id}
                 transaction={tx}
                 lookups={lookups}
+                showDate
                 onClick={() => setEditing(tx)}
               />
             ))}

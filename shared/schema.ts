@@ -168,6 +168,9 @@ export const recurringSchema = z.object({
   day_of: z.number().int().min(1).max(31),
   next_on: isoDate,
   active: z.union([z.literal(0), z.literal(1)]),
+  /** Who set it up. Each schedule is listed and prompted only for this member. Null on rows
+   *  older than the column with no updated_by to backfill from — those stay visible to everyone. */
+  created_by: id.nullable().optional(),
   ...syncColumns,
 });
 

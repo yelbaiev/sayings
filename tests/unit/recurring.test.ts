@@ -3,6 +3,7 @@ import { describe, expect, it } from "vitest";
 import {
   catchUp,
   dueRecurring,
+  isMine,
   monthlyEquivalent,
   monthlyTotal,
   nextOccurrence,
@@ -209,5 +210,21 @@ describe("monthlyTotal", () => {
     expect(total.byCurrency).toEqual([]);
     expect(total.grand).toBe(0);
     expect(total.grandUsable).toBe(false);
+  });
+});
+
+describe("isMine — each schedule shows only for its owner", () => {
+  it("belongs to whoever created it, even after the other member touched it", () => {
+    expect(isMine({ created_by: "lena", updated_by: "serhii" }, "lena")).toBe(true);
+    expect(isMine({ created_by: "lena", updated_by: "serhii" }, "serhii")).toBe(false);
+  });
+
+  it("falls back to updated_by for a row written before the column existed", () => {
+    expect(isMine({ updated_by: "serhii" }, "serhii")).toBe(true);
+    expect(isMine({ updated_by: "serhii" }, "lena")).toBe(false);
+  });
+
+  it("stays visible to everyone when it has no owner at all", () => {
+    expect(isMine({ created_by: null, updated_by: null }, "lena")).toBe(true);
   });
 });
