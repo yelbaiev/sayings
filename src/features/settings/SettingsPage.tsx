@@ -3,6 +3,12 @@ import { useEffect, useState } from "react";
 import { useApp } from "~/app/AppContext";
 import { Link, useRouter } from "~/app/router";
 import { resetLocalMirror, setDevicePrefs } from "~/db/dexie";
+import {
+  disableReminders,
+  enableReminders,
+  reminderAvailability,
+  useRemindersOn,
+} from "~/lib/notifications";
 import { put } from "~/db/mutations";
 import { useAccounts, useMembers, useTransactionCount } from "~/db/queries";
 import { requestSync } from "~/db/sync-client";
@@ -324,6 +330,8 @@ export function SettingsPage() {
         </div>
       </section>
 
+      <RemindersSection />
+
       {/* The section this whole project exists for. */}
       <section className="mb-6">
         <h2 className={SECTION_TITLE}>{t("settings.data")}</h2>
@@ -482,3 +490,49 @@ function VersionRow() {
     </div>
   );
 }
+
+/**
+ * Settings → Reminders. One switch per phone; see src/lib/notifications.ts for why it is a
+ * permission request and why it can be unavailable.
+ */
+export function RemindersSection() {
+  const { t } = useApp();
+  const on = useRemindersOn();
+  const [busy, setBusy] = useState(false);
+  // Read on every render: the permission can change in the system Settings while the app is open.
+  const availability = reminderAvailability();
+  const usable = availability === "available";
+
+  const hint =
+    availability === "needs-home-screen"
+      ? t("settings.remindersNeedsHomeScreen")
+      : availability === "denied"
+        ? t("settings.remindersDenied")
+        : availability === "unsupported"
+          ? t("settings.remindersUnsupported")
+          : t("settings.remindersHint");
+
+  return (
+    <section className="mb-6">
+      <h2 className={SECTION_TITLE}>{t("settings.reminders")}</h2>
+      <div className={CARD}>
+        <label className="flex min-h-11 items-center justify-between gap-3">
+          <span className="font-medium">{t("settings.remindersDue")}</span>
+          <input
+            type="checkbox"
+            role="switch"
+            checked={on && usable}
+            disabled={!usable || busy}
+            onChange={(event) => {
+              setBusy(true);
+              const action = event.target.checked ? enableReminders() : disableReminders();
+              void action.finally(() => setBusy(false));
+            }}
+          />
+        </label>
+        <p className={HINT}>{hint}</p>
+      </div>
+    </section>
+  );
+}
+

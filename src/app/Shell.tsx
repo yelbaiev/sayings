@@ -20,6 +20,8 @@ import { IconButton } from "~/ui/Button";
 import { PullToRefresh } from "~/ui/PullToRefresh";
 import { requestSync } from "~/db/sync-client";
 import { SyncPill } from "~/ui/SyncPill";
+import { useDueRecurring } from "~/features/recurring/useRecurring";
+import { setBadge, useRemindersOn } from "~/lib/notifications";
 
 /**
  * App chrome: a bottom tab bar on mobile, a sidebar on desktop, and the entry sheet.
@@ -137,6 +139,18 @@ export function Shell({ children }: { children: ReactNode }) {
     document.addEventListener("keydown", onKeyDown);
     return () => document.removeEventListener("keydown", onKeyDown);
   }, []);
+
+  /*
+   * The app-icon badge: how many of *your* regular payments are due (useDueRecurring is already
+   * scoped to the owner). Set whenever the count changes while the app is open; iOS keeps the last
+   * number on the icon after it closes. Only with reminders on — the person asked for it, and the
+   * permission it needs is what the Settings switch requests.
+   */
+  const remindersOn = useRemindersOn();
+  const dueCount = useDueRecurring().length;
+  useEffect(() => {
+    if (remindersOn) void setBadge(dueCount);
+  }, [remindersOn, dueCount]);
 
   /*
    * Deep links: `?add=expense`, `?add=income`, `?add=transfer` open the entry sheet on that kind.

@@ -1,5 +1,9 @@
 # Changelog
 
+## Version 1.4.7
+
+- Added: Settings → Reminders. Turn on "Due payments" and the SAYings icon shows how many of your regular payments are due. iPhone asks once for permission to show notifications, which the count needs; it updates each time you open the app. Each phone is switched on separately
+
 ## Version 1.4.6
 
 - Added: long-press shortcuts on the app icon — Add expense, Add income, History. They show on Android and in desktop Chrome or Edge; iPhone doesn't offer them for home-screen web apps yet, and they'll appear there if Apple adds support

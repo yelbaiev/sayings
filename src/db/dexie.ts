@@ -91,6 +91,12 @@ export interface DevicePrefs {
    * would mean a migration; worth it if that annoyance bites, not worth it first.
    */
   secondaryCurrency: string | null;
+  /**
+   * Due-payment reminders on this phone: the icon badge now, the morning push later. Per device
+   * because the permission behind it is per device. Optional, so stored prefs from before it read
+   * as off — no Dexie version bump, for the same reason as `introSeen`.
+   */
+  reminders?: boolean;
 }
 
 export class SayingsDb extends Dexie {
@@ -164,6 +170,7 @@ export async function getDevicePrefs(): Promise<DevicePrefs> {
       installPromptSeen: false,
       introSeen: false,
       secondaryCurrency: null,
+      reminders: false,
     }
   );
 }
