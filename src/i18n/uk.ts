@@ -330,7 +330,7 @@ const uk: Dictionary = {
   "settings.exportHint": "Один zip: по CSV на кожну таблицю плюс один JSON. Завжди ваші.",
   "settings.reminders": "Нагадування",
   "settings.remindersDue": "Платежі до сплати",
-  "settings.remindersHint": "Показує на значку застосунку, скільки ваших регулярних платежів час сплатити. Оновлюється щоразу, коли ви відкриваєте SAYings.",
+  "settings.remindersHint": "Сповіщення о 8:00, коли настає строк вашого регулярного платежу, і їх кількість на значку застосунку.",
   "settings.remindersNeedsHomeScreen": "Спершу додайте SAYings на екран «Додому» — iPhone дозволяє нагадування лише там.",
   "settings.remindersDenied": "Сповіщення для SAYings вимкнено. Увімкніть їх у Параметрах iPhone → Сповіщення → SAYings.",
   "settings.remindersUnsupported": "Цей браузер не вміє показувати нагадування.",

@@ -1,5 +1,10 @@
 # Changelog
 
+## Version 1.4.9
+
+- Added: the morning reminder. With Settings → Reminders on, your phone gets one notification at 08:00 Kyiv time listing your regular payments that are due — and nothing on days when none are. A payment you haven't posted or skipped is mentioned again the next morning
+- Fixed: "Send a test" sent early in the morning no longer stops that day's 08:00 reminder
+
 ## Version 1.4.8
 
 - Added: reminders can now reach your phone as a notification. With Settings → Reminders on, the app registers the phone for notifications; "Send a test" sends one straight away — your due payments if any are due, otherwise a short confirmation. The daily 08:00 reminder comes next

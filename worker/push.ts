@@ -307,16 +307,29 @@ export async function subscriptionsFor(db: D1Database, memberId: string): Promis
   return results;
 }
 
-/** Records how a send went: a gone subscription is deleted, a failure counted, a success stamped. */
-export async function recordResult(db: D1Database, endpoint: string, result: SendResult): Promise<void> {
+/**
+ * Records how a send went: a gone subscription is deleted, a failure counted, a success clears the
+ * failure count.
+ *
+ * `daily` stamps `last_sent_at`, which is what the morning reminder reads to send once a day. Only
+ * the reminder job passes it: a "Send a test" at 07:30 must not count as that morning's reminder.
+ */
+export async function recordResult(
+  db: D1Database,
+  endpoint: string,
+  result: SendResult,
+  { daily = false, now = Date.now() }: { daily?: boolean; now?: number } = {},
+): Promise<void> {
   const statement =
     result === "gone"
       ? db.prepare(`DELETE FROM push_subscriptions WHERE endpoint = ?`).bind(endpoint)
       : result === "failed"
         ? db.prepare(`UPDATE push_subscriptions SET failures = failures + 1 WHERE endpoint = ?`).bind(endpoint)
-        : db
-            .prepare(`UPDATE push_subscriptions SET last_sent_at = ?, failures = 0 WHERE endpoint = ?`)
-            .bind(Date.now(), endpoint);
+        : daily
+          ? db
+              .prepare(`UPDATE push_subscriptions SET last_sent_at = ?, failures = 0 WHERE endpoint = ?`)
+              .bind(now, endpoint)
+          : db.prepare(`UPDATE push_subscriptions SET failures = 0 WHERE endpoint = ?`).bind(endpoint);
   await statement.run();
 }
 

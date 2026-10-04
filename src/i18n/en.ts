@@ -306,7 +306,7 @@ const en = {
   "settings.exportHint": "One zip: a CSV per table plus one JSON file. Yours, always.",
   "settings.reminders": "Reminders",
   "settings.remindersDue": "Due payments",
-  "settings.remindersHint": "Shows how many of your regular payments are due on the app icon. It updates each time you open SAYings.",
+  "settings.remindersHint": "A notification at 8:00 when one of your regular payments is due, and a count of them on the app icon.",
   "settings.remindersNeedsHomeScreen": "Add SAYings to your Home Screen first — iPhone only allows reminders there.",
   "settings.remindersDenied": "Notifications are off for SAYings. Turn them on in iPhone Settings → Notifications → SAYings.",
   "settings.remindersUnsupported": "This browser can’t show reminders.",

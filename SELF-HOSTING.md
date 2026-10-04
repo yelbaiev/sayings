@@ -219,6 +219,11 @@ your app's address is enough, or use a `mailto:`. The script stores `VAPID_SUBJE
 key. Running it again makes a new pair. Phones re-subscribe on their next start, so nothing breaks,
 but a phone not opened in the meantime misses notifications until it is.
 
+The morning reminder goes out at 08:00 **Kyiv time** (`Europe/Kyiv`, `REMINDER_HOUR` in
+`worker/reminders.ts`), from an hourly cron (`7 * * * *`) that sends once the hour has passed. That
+keeps it at 08:00 through clock changes. If your household lives elsewhere, change the time zone
+there. Nobody is messaged on a day with nothing due.
+
 On an iPhone, reminders only work in the app added to the Home Screen (iOS 16.4 or later). Each
 person turns them on for their own phone and allows notifications once, then can check delivery
 with **Send a test**.

@@ -48,5 +48,6 @@
 
   // 00:30 UTC: refresh FX rates, re-price anything saved offline without one, snapshot the whole
   // household to R2, then check for a new release.
-  "triggers": { "crons": ["30 0 * * *"] }
+  // Hourly at :07: due-payment reminders, sent from 08:00 Kyiv time (worker/reminders.ts).
+  "triggers": { "crons": ["30 0 * * *", "7 * * * *"] }
 }

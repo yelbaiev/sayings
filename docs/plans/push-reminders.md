@@ -155,7 +155,7 @@ Sources: [Badging for Home Screen Web Apps](https://webkit.org/blog/14112/badgin
   - **Live:** after deploy, turn reminders on on one iPhone and tap "Send a test". The notification
     arrives and the icon shows the count.
 
-### Phase 3 — The daily reminder
+### Phase 3 — The daily reminder — shipped 1.4.9
 
 - **Goal:** the morning notification, sent with no one opening the app.
 - **Files in scope:** `worker/index.ts` `scheduled()`, new `worker/reminders.ts`, both wrangler
@@ -167,6 +167,8 @@ Sources: [Badging for Home Screen Web Apps](https://webkit.org/blog/14112/badgin
   - For each member with reminders on: count their due payments with the SQL rule from §3. If above
     zero, send one notification to each of their devices with the count and names, and record
     `last_sent_at`. A second run on the same day sends nothing.
+  - Only the daily job stamps `last_sent_at`; "Send a test" records results without it, so a test
+    at 07:30 does not count as that morning's reminder (found while building this phase).
   - Failures are counted per subscription. A 404 or 410 removes it. One person's failure never
     stops another's reminder or the nightly backup (separate try blocks, as now).
 - **Verification:**

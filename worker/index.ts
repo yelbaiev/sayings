@@ -45,6 +45,7 @@ import {
   testMessage,
   type PushEnv,
 } from "./push";
+import { runReminders } from "./reminders";
 import { repriceToBase } from "./reprice";
 import { SyncError, handleSync } from "./sync";
 import { isNewer, isUpdateCheckEnabled, runUpdateCheck, storedRelease } from "./update-check";
@@ -486,7 +487,26 @@ export default {
    *
    * Order matters — the backup should capture corrected figures, not the estimates.
    */
-  async scheduled(_controller, env, _ctx) {
+  async scheduled(controller, env, _ctx) {
+    /*
+     * Two schedules (wrangler config `triggers.crons`):
+     *   "7 * * * *"  hourly — the 08:00 Kyiv reminder (worker/reminders.ts decides whether it's time)
+     *   "30 0 * * *" nightly — FX, reconcile, backup, update check
+     * Branched on the cron that fired, so the hourly run never repeats the nightly work.
+     */
+    if (controller.cron !== "30 0 * * *") {
+      try {
+        const run = await runReminders(env.DB, pushConfig(env));
+        if (run.sent || run.failed || run.removed) {
+          // Counts only: endpoints are capability URLs and stay out of logs.
+          console.log(`Reminders: ${run.sent} sent, ${run.failed} failed, ${run.removed} removed`);
+        }
+      } catch (error) {
+        console.error("Reminders failed:", (error as Error).message);
+      }
+      return;
+    }
+
     const today = new Date().toISOString().slice(0, 10);
 
     try {
@@ -516,4 +536,4 @@ export default {
       console.error("Update check failed:", (error as Error).message);
     }
   },
-} satisfies ExportedHandler<Env>;
+} satisfies ExportedHandler<Env & PushEnv>;
