@@ -5,6 +5,7 @@ import { useLatestTransaction } from "~/db/queries";
 import type { Currency } from "@shared/currency";
 import { todayIso } from "~/lib/format";
 import { pricingFor } from "~/lib/fx";
+import { haptic } from "~/lib/haptics";
 
 /**
  * Repeat-last, bound to a long press on the add button.
@@ -44,5 +45,6 @@ export function useRepeatLast(): () => Promise<void> {
     // No toast. The new row surfacing in the list below is the confirmation, and the bubble it
     // replaced sat over the tab bar blocking the very next tap until it deigned to leave.
     await put("transactions", row as never, me);
+    haptic("confirm");
   }, [last, me, baseCurrency]);
 }

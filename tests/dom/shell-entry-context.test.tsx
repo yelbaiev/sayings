@@ -222,8 +222,13 @@ describe("the + button's quick actions", () => {
   }
 
   it("opens on a hold, and a pick opens the entry sheet on that kind", async () => {
+    const vibrate = vi.fn(() => true);
+    Object.assign(navigator, { vibrate });
     const plus = renderShell();
     hold(plus);
+    // A light tap as the menu opens, on phones that vibrate (Android).
+    expect(vibrate).toHaveBeenCalledWith(10);
+    delete (navigator as { vibrate?: unknown }).vibrate;
 
     const menu = await screen.findByRole("menu");
     const items = within(menu).getAllByRole("menuitem").map((item) => item.textContent);

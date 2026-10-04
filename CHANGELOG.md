@@ -1,5 +1,9 @@
 # Changelog
 
+## Version 1.5.2
+
+- Added: on Android, short vibrations as feedback — a light tap when the + menu opens, a pulse when an entry, quick tile or repeat is saved, and a double pulse when something is deleted. iPhone doesn't let web apps vibrate, so nothing changes there
+
 ## Version 1.5.1
 
 - Added: hold the + button for quick actions — Repeat last (showing what it will repeat), Expense, Income, Transfer. On a computer, right-click the + instead. A tap still opens a new entry

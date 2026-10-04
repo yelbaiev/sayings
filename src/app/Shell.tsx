@@ -23,6 +23,7 @@ import { requestSync } from "~/db/sync-client";
 import { SyncPill } from "~/ui/SyncPill";
 import { useDueRecurring } from "~/features/recurring/useRecurring";
 import { setBadge, subscribePush, useRemindersOn } from "~/lib/notifications";
+import { haptic } from "~/lib/haptics";
 
 /**
  * App chrome: a bottom tab bar on mobile, a sidebar on desktop, and the entry sheet.
@@ -98,7 +99,10 @@ export function Shell({ children }: { children: ReactNode }) {
         // Holding opens the quick actions, even on an empty ledger: the three kinds are still
         // worth offering, and Repeat last simply is not listed. A tap still works either way —
         // that is the invariant the old code broke.
-        onLongPress: () => setAddMenuOpen(true),
+        onLongPress: () => {
+          haptic("tap");
+          setAddMenuOpen(true);
+        },
       }),
     [],
   );

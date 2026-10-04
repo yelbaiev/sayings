@@ -20,6 +20,7 @@ import { Field as ShadField, FieldDescription, FieldLabel } from "~/ui/field";
 import { ToggleGroup, ToggleGroupItem } from "~/ui/toggle-group";
 import { formatMoney, type MoneyFormatOptions } from "~/lib/format";
 import { fromBaseAtLatest, useLatestRates } from "~/db/useRates";
+import { haptic } from "~/lib/haptics";
 
 /* ------------------------------------------------------------------------------ Amount */
 
@@ -515,6 +516,7 @@ export function SwipeRow({
 
   const commit = (action: SwipeAction | undefined) => {
     close();
+    if (action) haptic(action.tone === "danger" ? "warning" : "tap");
     action?.onAction();
   };
 

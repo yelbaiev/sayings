@@ -39,6 +39,7 @@ import { RateField, formatRate } from "./RateField";
 import { DateChip } from "./DateChip";
 import { ReceiptField } from "./ReceiptField";
 import { SplitSheet } from "./SplitSheet";
+import { haptic } from "~/lib/haptics";
 
 /**
  * The amount-first entry sheet.
@@ -424,6 +425,7 @@ export function EntrySheet({
 
     // Replaces the single transaction being edited, if any.
     if (editing) await remove("transactions", editing.id, me);
+    haptic("confirm");
 
     setSplitting(false);
     onSaved();
@@ -479,6 +481,7 @@ export function EntrySheet({
     };
 
     await put("transactions", row as never, me);
+    haptic("confirm");
 
     // Remember the pairing for next time. Device-local: it is a habit of this phone's owner.
     // Not recorded for excluded accounts — backfilling history must not retrain the predictions

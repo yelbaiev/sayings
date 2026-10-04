@@ -20,6 +20,7 @@ import { useRepeatLast } from "~/features/entry/useRepeatLast";
 import { rateFor } from "~/lib/fx";
 import { formatMoney, todayIso } from "~/lib/format";
 import { Field, IconChip, Sheet } from "~/ui";
+import { haptic } from "~/lib/haptics";
 
 /**
  * One-tap transactions pinned to Home.
@@ -91,6 +92,7 @@ export function QuickTiles() {
       } as never,
       me,
     );
+    haptic("confirm");
 
     // No toast, deliberately, second edition: the tile flash plus the row appearing in the list
     // below are the confirmation, and a mis-tap is one hold-to-delete away.

@@ -2,6 +2,7 @@ import { useEffect, useRef, useState, type ReactNode } from "react";
 import { buttonVariants } from "~/ui/Button";
 import { cn } from "~/lib/cn";
 import { useApp } from "~/app/AppContext";
+import { haptic } from "~/lib/haptics";
 
 /**
  * A destructive button that fires on *hold*, not on tap.
@@ -69,6 +70,8 @@ export function HoldButton({
     schedule(HOLD_MS, () => {
       fired.current = true;
       setHolding(false);
+      // Hold-to-confirm guards removals, hence the removal pulse.
+      haptic("warning");
       onConfirm();
     });
   }
