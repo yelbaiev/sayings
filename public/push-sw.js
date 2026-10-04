@@ -24,6 +24,9 @@ self.addEventListener("push", (event) => {
     self.registration.showNotification(title, {
       body: message.body || "",
       icon: "/icon-192.png",
+      // Android's status bar shows only this, tinted from its alpha channel; without it Chrome
+      // stands in its own generic bell. iPhone ignores it. Drawn from icon.svg: icon-badge.svg.
+      badge: "/icon-badge-96.png",
       // One notification per kind: today's replaces yesterday's instead of stacking.
       tag: "due-payments",
       data: { url: message.url || "/recurring" },

@@ -33,7 +33,7 @@ export function isStandalone(): boolean {
   return iosStandalone || window.matchMedia?.("(display-mode: standalone)").matches === true;
 }
 
-function isIos(): boolean {
+export function isIos(): boolean {
   return /iPhone|iPad|iPod/.test(navigator.userAgent) ||
     // iPadOS reports itself as a Mac; touch is what gives it away.
     (navigator.userAgent.includes("Macintosh") && navigator.maxTouchPoints > 1);

@@ -6,6 +6,7 @@ import { resetLocalMirror, setDevicePrefs } from "~/db/dexie";
 import {
   disableReminders,
   enableReminders,
+  isIos,
   reminderAvailability,
   sendTestNotification,
   useRemindersOn,
@@ -510,7 +511,11 @@ export function RemindersSection() {
     availability === "needs-home-screen"
       ? t("settings.remindersNeedsHomeScreen")
       : availability === "denied"
-        ? t("settings.remindersDenied")
+        ? // Where to undo a refusal differs by phone: iOS keeps it in the system Settings, Android
+          // and desktop browsers in the site's own permissions.
+          isIos()
+          ? t("settings.remindersDenied")
+          : t("settings.remindersDeniedBrowser")
         : availability === "unsupported"
           ? t("settings.remindersUnsupported")
           : t("settings.remindersHint");

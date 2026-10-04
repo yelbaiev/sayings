@@ -309,6 +309,7 @@ const en = {
   "settings.remindersHint": "A notification at 8:00 when one of your regular payments is due, and a count of them on the app icon.",
   "settings.remindersNeedsHomeScreen": "Add SAYings to your Home Screen first — iPhone only allows reminders there.",
   "settings.remindersDenied": "Notifications are off for SAYings. Turn them on in iPhone Settings → Notifications → SAYings.",
+  "settings.remindersDeniedBrowser": "Notifications are blocked for SAYings. Allow them in your browser’s site settings for this app (the icon beside the address, or Settings → Site settings → Notifications), then come back.",
   "settings.remindersUnsupported": "This browser can’t show reminders.",
   "settings.remindersTest": "Send a test",
   "settings.remindersTestSent": "Sent. It should arrive in a few seconds.",

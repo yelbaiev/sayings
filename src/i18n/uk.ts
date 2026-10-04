@@ -333,6 +333,7 @@ const uk: Dictionary = {
   "settings.remindersHint": "Сповіщення о 8:00, коли настає строк вашого регулярного платежу, і їх кількість на значку застосунку.",
   "settings.remindersNeedsHomeScreen": "Спершу додайте SAYings на екран «Додому» — iPhone дозволяє нагадування лише там.",
   "settings.remindersDenied": "Сповіщення для SAYings вимкнено. Увімкніть їх у Параметрах iPhone → Сповіщення → SAYings.",
+  "settings.remindersDeniedBrowser": "Сповіщення для SAYings заблоковано. Дозвольте їх у налаштуваннях сайту в браузері (значок біля адреси або Налаштування → Налаштування сайтів → Сповіщення) і поверніться сюди.",
   "settings.remindersUnsupported": "Цей браузер не вміє показувати нагадування.",
   "settings.remindersTest": "Надіслати тест",
   "settings.remindersTestSent": "Надіслано. Прийде за кілька секунд.",

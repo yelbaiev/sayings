@@ -1,5 +1,10 @@
 # Changelog
 
+## Version 1.5.0
+
+- Fixed: on Android, if notifications had been refused, Settings → Reminders told you to look in iPhone Settings; it now points to the browser's site settings
+- Added: on Android, SAYings notifications show the app's own mark in the status bar instead of the browser's generic bell
+
 ## Version 1.4.9
 
 - Added: the morning reminder. With Settings → Reminders on, your phone gets one notification at 08:00 Kyiv time listing your regular payments that are due — and nothing on days when none are. A payment you haven't posted or skipped is mentioned again the next morning

@@ -22,6 +22,7 @@ vi.mock("~/db/dexie", () => ({
 const { RemindersSection } = await import("~/features/settings/SettingsPage");
 
 const IPHONE = "Mozilla/5.0 (iPhone; CPU iPhone OS 18_0 like Mac OS X) AppleWebKit/605.1.15";
+const ANDROID = "Mozilla/5.0 (Linux; Android 15; Pixel 9) AppleWebKit/537.36 Chrome/140.0 Mobile Safari/537.36";
 
 function withNotification(permission: NotificationPermission | null, request?: () => Promise<NotificationPermission>) {
   if (permission === null) {
@@ -33,6 +34,7 @@ function withNotification(permission: NotificationPermission | null, request?: (
 
 afterEach(() => {
   vi.unstubAllGlobals();
+  vi.restoreAllMocks();
   setDevicePrefs.mockClear();
 });
 
@@ -46,12 +48,29 @@ describe("the reminders switch", () => {
     expect(screen.getByText(/экран «Домой»/u)).toBeTruthy();
   });
 
-  it("points to the system Settings once permission was refused", () => {
+  it("points an iPhone to the system Settings once permission was refused", () => {
+    vi.spyOn(navigator, "userAgent", "get").mockReturnValue(IPHONE);
     withNotification("denied");
     renderInApp(<RemindersSection />);
 
     expect(screen.getByRole<HTMLInputElement>("switch").disabled).toBe(true);
     expect(screen.getByText(/Настройках iPhone/u)).toBeTruthy();
+  });
+
+  it("points Android to the browser's site settings instead", () => {
+    vi.spyOn(navigator, "userAgent", "get").mockReturnValue(ANDROID);
+    withNotification("denied");
+    renderInApp(<RemindersSection />);
+
+    expect(screen.getByText(/настройках сайта в браузере/u)).toBeTruthy();
+    expect(screen.queryByText(/iPhone/u)).toBeNull();
+  });
+
+  it("is available in an ordinary Android browser tab — no Home Screen step", () => {
+    vi.spyOn(navigator, "userAgent", "get").mockReturnValue(ANDROID);
+    withNotification("default");
+    renderInApp(<RemindersSection />);
+    expect(screen.getByRole<HTMLInputElement>("switch").disabled).toBe(false);
   });
 
   it("asks for permission on tap and turns on when it is granted", async () => {
