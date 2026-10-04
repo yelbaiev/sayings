@@ -1,5 +1,10 @@
 # Changelog
 
+## Version 1.5.1
+
+- Added: hold the + button for quick actions — Repeat last (showing what it will repeat), Expense, Income, Transfer. On a computer, right-click the + instead. A tap still opens a new entry
+- Changed: holding + no longer repeats the last transaction straight away; it's now the first item in that menu, one more tap. The Repeat tile on Home works as before
+
 ## Version 1.5.0
 
 - Fixed: on Android, if notifications had been refused, Settings → Reminders told you to look in iPhone Settings; it now points to the browser's site settings

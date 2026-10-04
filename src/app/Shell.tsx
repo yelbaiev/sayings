@@ -4,6 +4,7 @@ import { useApp } from "~/app/AppContext";
 import { cn } from "~/lib/cn";
 import { useRouter, type RouteName } from "~/app/router";
 import { EntrySheet } from "~/features/entry/EntrySheet";
+import { AddMenu } from "~/app/AddMenu";
 import { createPressGesture } from "~/lib/press-gesture";
 import {
   EyeIcon,
@@ -84,15 +85,22 @@ export function Shell({ children }: { children: ReactNode }) {
   /** Set by the e/i/t shortcuts so the sheet opens on the right kind. */
   const [entryKind, setEntryKind] = useState<TxKind | undefined>(deepLinkKind);
 
+  /** The quick-actions menu on the + button — see AddMenu. */
+  const [addMenuOpen, setAddMenuOpen] = useState(false);
+
   const pressGesture = useMemo(
     () =>
       createPressGesture({
-        onTap: () => setEntryOpen(true),
-        // Undefined when there is nothing to repeat. A tap still works either way — that is
-        // the invariant the old code broke.
-        onLongPress: lastTransaction ? () => void repeatLast() : undefined,
+        onTap: () => {
+          setEntryKind(undefined);
+          setEntryOpen(true);
+        },
+        // Holding opens the quick actions, even on an empty ledger: the three kinds are still
+        // worth offering, and Repeat last simply is not listed. A tap still works either way —
+        // that is the invariant the old code broke.
+        onLongPress: () => setAddMenuOpen(true),
       }),
-    [lastTransaction, repeatLast],
+    [],
   );
 
   /*
@@ -216,52 +224,65 @@ export function Shell({ children }: { children: ReactNode }) {
       >
         {LEFT_TABS.map(renderTab)}
 
-        <button
-          type="button"
-          className={cn(
-            // A raised circle on the phone, deliberately larger than the tabs around it.
-            "mx-auto grid size-[54px] place-items-center rounded-full bg-primary text-primary-foreground",
-            "shadow-lg shadow-primary/30 active:scale-95",
-            // The sidebar form: first in the list, shaped like its neighbours, label shown.
-            "min-[900px]:order-first min-[900px]:mx-0 min-[900px]:mb-3 min-[900px]:flex min-[900px]:h-auto",
-            "min-[900px]:w-auto min-[900px]:items-center min-[900px]:justify-start min-[900px]:gap-3",
-            "min-[900px]:rounded-lg min-[900px]:px-3 min-[900px]:py-2.5 min-[900px]:text-[15px]",
-            "min-[900px]:font-semibold min-[900px]:shadow-none",
-          )}
-          aria-label={t("nav.add")}
-          /* Its own press animation lives in `active:scale-95` above, and the gesture machine owns
-             what a press here means. The app-wide flash would animate the same transform. */
-          data-press-flash="off"
-          /*
-           * The tooltip carries the hold, the accessible name deliberately does not: renaming the
-           * primary action after a gesture nobody using a screen reader can perform buys nothing,
-           * and the visible way in is the repeat-last tile on the home screen. A tooltip is no use
-           * under a thumb.
-           */
-          title={
-            lastTransaction
-              ? `${t("nav.addShortcuts")} · ${t("entry.repeatLast")}`
-              : t("nav.addShortcuts")
-          }
-          onPointerDown={() => pressGesture.down()}
-          onPointerUp={() => pressGesture.up()}
-          onPointerLeave={() => pressGesture.cancel()}
-          onPointerCancel={() => pressGesture.cancel()}
-          // Keyboard and assistive tech never produce pointer events, so the gesture layer
-          // would leave the primary action unreachable without this.
-          onKeyDown={(event) => {
-            if (event.key === "Enter" || event.key === " ") {
-              event.preventDefault();
-              setEntryOpen(true);
-            }
+        <AddMenu
+          open={addMenuOpen}
+          onOpenChange={setAddMenuOpen}
+          lastTransaction={lastTransaction}
+          onPick={(kind) => {
+            setEntryKind(kind);
+            setEntryOpen(true);
           }}
+          onRepeat={() => void repeatLast()}
         >
-          <PlusIcon />
-          {/* Hidden on the phone, where the button is a round FAB and the icon is the whole point.
-              In the desktop sidebar every other item is labelled, and a lone glyph in a wide
-              rectangle reads as something that failed to render. */}
-          <span className="hidden min-[900px]:inline">{t("nav.add")}</span>
-        </button>
+          <button
+            type="button"
+            className={cn(
+              // A raised circle on the phone, deliberately larger than the tabs around it.
+              "mx-auto grid size-[54px] place-items-center rounded-full bg-primary text-primary-foreground",
+              "shadow-lg shadow-primary/30 active:scale-95",
+              // The sidebar form: first in the list, shaped like its neighbours, label shown.
+              "min-[900px]:order-first min-[900px]:mx-0 min-[900px]:mb-3 min-[900px]:flex min-[900px]:h-auto",
+              "min-[900px]:w-auto min-[900px]:items-center min-[900px]:justify-start min-[900px]:gap-3",
+              "min-[900px]:rounded-lg min-[900px]:px-3 min-[900px]:py-2.5 min-[900px]:text-[15px]",
+              "min-[900px]:font-semibold min-[900px]:shadow-none",
+            )}
+            aria-label={t("nav.add")}
+            /* Its own press animation lives in `active:scale-95` above, and the gesture machine owns
+               what a press here means. The app-wide flash would animate the same transform. */
+            data-press-flash="off"
+            /*
+             * The tooltip carries the hold, the accessible name deliberately does not: renaming the
+             * primary action after a gesture nobody using a screen reader can perform buys nothing,
+             * and the visible way in is the repeat-last tile on the home screen. A tooltip is no use
+             * under a thumb.
+             */
+            title={`${t("nav.addShortcuts")} · ${t("nav.addHold")}`}
+            onPointerDown={() => pressGesture.down()}
+            onPointerUp={() => pressGesture.up()}
+            onPointerLeave={() => pressGesture.cancel()}
+            onPointerCancel={() => pressGesture.cancel()}
+            // Right-click on a desktop opens the same quick actions a hold does on a phone.
+            onContextMenu={(event) => {
+              event.preventDefault();
+              pressGesture.cancel();
+              setAddMenuOpen(true);
+            }}
+            // Keyboard and assistive tech never produce pointer events, so the gesture layer
+            // would leave the primary action unreachable without this.
+            onKeyDown={(event) => {
+              if (event.key === "Enter" || event.key === " ") {
+                event.preventDefault();
+                setEntryOpen(true);
+              }
+            }}
+          >
+            <PlusIcon />
+            {/* Hidden on the phone, where the button is a round FAB and the icon is the whole point.
+                In the desktop sidebar every other item is labelled, and a lone glyph in a wide
+                rectangle reads as something that failed to render. */}
+            <span className="hidden min-[900px]:inline">{t("nav.add")}</span>
+          </button>
+        </AddMenu>
 
         {RIGHT_TABS.map(renderTab)}
       </nav>

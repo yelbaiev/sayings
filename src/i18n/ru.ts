@@ -10,6 +10,7 @@ const ru: Dictionary = {
   "nav.history": "История",
   "nav.add": "Добавить",
   "nav.addShortcuts": "Добавить — N, либо E расход · I доход · T перевод",
+  "nav.addHold": "удерживайте — быстрые действия",
   "nav.reports": "Отчёты",
   "nav.settings": "Настройки",
 

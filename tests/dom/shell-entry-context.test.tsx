@@ -201,3 +201,51 @@ describe("home-screen shortcut links", () => {
     expect(screen.queryByRole("dialog")).toBeNull();
   });
 });
+
+describe("the + button's quick actions", () => {
+  function renderShell() {
+    window.history.replaceState({}, "", "/");
+    renderInApp(
+      <RouterProvider>
+        <Shell>{null}</Shell>
+      </RouterProvider>,
+    );
+    return screen.getByRole("button", { name: "Добавить" });
+  }
+
+  function hold(button: HTMLElement) {
+    vi.useFakeTimers();
+    fireEvent.pointerDown(button);
+    vi.advanceTimersByTime(600);
+    fireEvent.pointerUp(button);
+    vi.useRealTimers();
+  }
+
+  it("opens on a hold, and a pick opens the entry sheet on that kind", async () => {
+    const plus = renderShell();
+    hold(plus);
+
+    const menu = await screen.findByRole("menu");
+    const items = within(menu).getAllByRole("menuitem").map((item) => item.textContent);
+    // Nothing to repeat in this ledger (useLastTransaction is mocked to null), so three kinds only.
+    expect(items).toEqual(["−Расход", "+Доход", "Перевод"]);
+
+    fireEvent.click(within(menu).getByRole("menuitem", { name: /Доход/u }));
+    expect(screen.queryByRole("menu")).toBeNull();
+    expect(await screen.findByRole("dialog")).toBeTruthy();
+  });
+
+  it("opens on right-click too, for a mouse", async () => {
+    const plus = renderShell();
+    fireEvent.contextMenu(plus);
+    expect(await screen.findByRole("menu")).toBeTruthy();
+  });
+
+  it("leaves a tap as it was: a new entry, no menu", async () => {
+    const plus = renderShell();
+    fireEvent.pointerDown(plus);
+    fireEvent.pointerUp(plus);
+    expect(await screen.findByRole("dialog")).toBeTruthy();
+    expect(screen.queryByRole("menu")).toBeNull();
+  });
+});

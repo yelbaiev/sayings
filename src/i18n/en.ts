@@ -15,6 +15,7 @@ const en = {
   "nav.history": "History",
   "nav.add": "Add",
   "nav.addShortcuts": "Add — N, or E expense · I income · T transfer",
+  "nav.addHold": "hold for quick actions",
   "nav.reports": "Reports",
   "nav.settings": "Settings",
 

@@ -13,6 +13,7 @@ const uk: Dictionary = {
   "nav.history": "Історія",
   "nav.add": "Додати",
   "nav.addShortcuts": "Додати — N, або E витрата · I дохід · T переказ",
+  "nav.addHold": "утримуйте — швидкі дії",
   "nav.reports": "Звіти",
   "nav.settings": "Налаштування",
 
