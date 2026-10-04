@@ -21,7 +21,7 @@ import { PullToRefresh } from "~/ui/PullToRefresh";
 import { requestSync } from "~/db/sync-client";
 import { SyncPill } from "~/ui/SyncPill";
 import { useDueRecurring } from "~/features/recurring/useRecurring";
-import { setBadge, useRemindersOn } from "~/lib/notifications";
+import { setBadge, subscribePush, useRemindersOn } from "~/lib/notifications";
 
 /**
  * App chrome: a bottom tab bar on mobile, a sidebar on desktop, and the entry sheet.
@@ -151,6 +151,12 @@ export function Shell({ children }: { children: ReactNode }) {
   useEffect(() => {
     if (remindersOn) void setBadge(dueCount);
   }, [remindersOn, dueCount]);
+
+  // Re-register this phone for push on every start with reminders on. Cheap and idempotent, and it
+  // enrols phones that turned reminders on before push existed, or whose subscription lapsed.
+  useEffect(() => {
+    if (remindersOn) void subscribePush().catch(() => undefined);
+  }, [remindersOn]);
 
   /*
    * Deep links: `?add=expense`, `?add=income`, `?add=transfer` open the entry sheet on that kind.

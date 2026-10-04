@@ -1,5 +1,6 @@
 import { useLiveQuery } from "dexie-react-hooks";
 import { db, setDevicePrefs } from "~/db/dexie";
+import { ApiError, apiFetch } from "~/lib/api";
 
 /**
  * Reminders: the due-payment count on the app icon, and (from the next phase) the morning push.
@@ -8,8 +9,11 @@ import { db, setDevicePrefs } from "~/db/dexie";
  * - The badge only *shows* once the person has allowed notifications, so turning reminders on is
  *   a permission request.
  * - That request is only possible in the home-screen app, from a tap — never in a Safari tab.
- * - A closed app cannot change its badge except from a push. Until the push phase ships, the badge
- *   is set whenever the app is open and keeps that number after it closes.
+ * - A closed app cannot change its badge except from a push. The badge is set whenever the app is
+ *   open; a push (public/push-sw.js) is what updates it while closed.
+ *
+ * Turning reminders on also subscribes this phone to push, when the installation has push keys
+ * (worker/push.ts). Without them the badge still works and push is simply skipped.
  *
  * See docs/plans/push-reminders.md.
  */
@@ -61,12 +65,96 @@ export async function enableReminders(): Promise<boolean> {
     Notification.permission === "granted" ? "granted" : await Notification.requestPermission();
   if (permission !== "granted") return false;
   await setDevicePrefs({ reminders: true });
+  // Best effort: the badge does not depend on push, so a push failure must not undo the switch.
+  await subscribePush().catch(() => false);
   return true;
 }
 
 export async function disableReminders(): Promise<void> {
   await setDevicePrefs({ reminders: false });
   await setBadge(0);
+  await unsubscribePush().catch(() => undefined);
+}
+
+/* ------------------------------------------------------------------------------ push */
+
+function pushAvailable(): boolean {
+  return "serviceWorker" in navigator && typeof PushManager !== "undefined";
+}
+
+function toB64url(buffer: ArrayBuffer | null | undefined): string {
+  if (!buffer) return "";
+  let binary = "";
+  for (const byte of new Uint8Array(buffer)) binary += String.fromCharCode(byte);
+  return btoa(binary).replace(/\+/g, "-").replace(/\//g, "_").replace(/=+$/, "");
+}
+
+function fromB64url(text: string): Uint8Array<ArrayBuffer> {
+  const base64 = text.replace(/-/g, "+").replace(/_/g, "/");
+  const binary = atob(base64 + "=".repeat((4 - (base64.length % 4)) % 4));
+  const out = new Uint8Array(binary.length);
+  for (let i = 0; i < binary.length; i++) out[i] = binary.charCodeAt(i);
+  return out;
+}
+
+/**
+ * Subscribes this phone to push and registers it with the server. Resolves to whether push is now
+ * set up. Idempotent: an existing subscription for the same key is re-registered, not replaced —
+ * which is also how a phone that turned reminders on before push existed gets enrolled.
+ */
+export async function subscribePush(): Promise<boolean> {
+  if (!pushAvailable() || Notification.permission !== "granted") return false;
+  const { publicKey } = await apiFetch<{ publicKey: string | null }>("/api/push/key");
+  if (!publicKey) return false;
+
+  const registration = await navigator.serviceWorker.ready;
+  let subscription = await registration.pushManager.getSubscription();
+  // A subscription made with an older server key cannot receive messages signed with this one.
+  if (subscription && toB64url(subscription.options.applicationServerKey) !== publicKey) {
+    await subscription.unsubscribe();
+    subscription = null;
+  }
+  subscription ??= await registration.pushManager.subscribe({
+    userVisibleOnly: true,
+    applicationServerKey: fromB64url(publicKey),
+  });
+
+  await apiFetch("/api/push/subscribe", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(subscription.toJSON()),
+  });
+  return true;
+}
+
+async function unsubscribePush(): Promise<void> {
+  if (!pushAvailable()) return;
+  const registration = await navigator.serviceWorker.ready;
+  const subscription = await registration.pushManager.getSubscription();
+  if (!subscription) return;
+  await apiFetch("/api/push/subscribe", {
+    method: "DELETE",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ endpoint: subscription.endpoint }),
+  }).catch(() => undefined);
+  await subscription.unsubscribe();
+}
+
+export type TestResult = "sent" | "no-subscription" | "not-configured" | "failed";
+
+/** "Send a test" in Settings. */
+export async function sendTestNotification(): Promise<TestResult> {
+  try {
+    // Re-register first, so a test straight after an update (or a lost subscription) still lands.
+    if (!(await subscribePush())) {
+      const { publicKey } = await apiFetch<{ publicKey: string | null }>("/api/push/key");
+      return publicKey ? "no-subscription" : "not-configured";
+    }
+    const { sent } = await apiFetch<{ sent: number; failed: number }>("/api/push/test", { method: "POST" });
+    return sent > 0 ? "sent" : "failed";
+  } catch (error) {
+    return error instanceof ApiError && error.status === 503 ? "not-configured" : "failed";
+  }
 }
 
 type BadgingNavigator = Navigator & {

@@ -30,12 +30,29 @@ import {
   readSessionToken,
   sessionCookie,
 } from "./passkeys";
+import {
+  dueMessage,
+  duePayments,
+  isPushEndpoint,
+  kyivDate,
+  pushConfig,
+  recordResult,
+  removeSubscription,
+  saveSubscription,
+  sendPush,
+  subscribeSchema,
+  subscriptionsFor,
+  testMessage,
+  type PushEnv,
+} from "./push";
 import { repriceToBase } from "./reprice";
 import { SyncError, handleSync } from "./sync";
 import { isNewer, isUpdateCheckEnabled, runUpdateCheck, storedRelease } from "./update-check";
 
 type AppEnv = {
-  Bindings: Env;
+  // The VAPID secrets are optional and set with `wrangler secret put`, so they are not in the
+  // generated Env type — see worker/push.ts.
+  Bindings: Env & PushEnv;
   Variables: { identity: AccessIdentity; member: MemberRecord };
 };
 
@@ -234,6 +251,62 @@ api.get("/me", async (c) => {
     enabled_currencies: currencies.enabled,
     needs_currency_setup: await needsCurrencySetup(c.env.DB),
   });
+});
+
+/* -------------------------------------------------------------------- reminders (push) */
+
+/** The key a phone subscribes with, or null when this installation has no push keys. */
+api.get("/push/key", (c) => c.json({ publicKey: pushConfig(c.env)?.publicKey ?? null }));
+
+/** A phone turning reminders on. Stored against the caller; see worker/push.ts. */
+api.post("/push/subscribe", async (c) => {
+  const text = await c.req.text();
+  if (text.length > 4096) return c.json({ error: "subscription too large" }, 413);
+  let parsed;
+  try {
+    parsed = subscribeSchema.safeParse(JSON.parse(text));
+  } catch {
+    return c.json({ error: "invalid subscription" }, 400);
+  }
+  if (!parsed.success || !isPushEndpoint(parsed.data.endpoint)) {
+    return c.json({ error: "invalid subscription" }, 400);
+  }
+  await saveSubscription(c.env.DB, c.get("member").id, parsed.data);
+  return c.json({ ok: true });
+});
+
+/** A phone turning reminders off. Only ever the caller's own subscription. */
+api.delete("/push/subscribe", async (c) => {
+  const body = (await c.req.json().catch(() => ({}))) as { endpoint?: unknown };
+  if (typeof body.endpoint !== "string") return c.json({ error: "endpoint required" }, 400);
+  await removeSubscription(c.env.DB, c.get("member").id, body.endpoint);
+  return c.json({ ok: true });
+});
+
+/**
+ * "Send a test" in Settings: one notification to each of the caller's phones, right now. Shows the
+ * real due list when there is one, so the test is what the morning reminder will look like.
+ */
+api.post("/push/test", async (c) => {
+  const config = pushConfig(c.env);
+  if (!config) return c.json({ error: "push is not set up on this installation" }, 503);
+  const member = c.get("member");
+  const subscriptions = await subscriptionsFor(c.env.DB, member.id);
+  if (subscriptions.length === 0) return c.json({ sent: 0, failed: 0 });
+
+  const due = await duePayments(c.env.DB, member.id, kyivDate());
+  const message = due.length > 0 ? dueMessage(member.locale, due) : testMessage(member.locale);
+
+  let sent = 0;
+  let failed = 0;
+  for (const subscription of subscriptions) {
+    const result = await sendPush(subscription, message, config).catch(() => "failed" as const);
+    await recordResult(c.env.DB, subscription.endpoint, result);
+    if (result === "sent") sent++;
+    else failed++;
+  }
+  // Counts only: an endpoint is a capability URL and stays out of responses and logs.
+  return c.json({ sent, failed });
 });
 
 /**

@@ -5,3 +5,9 @@ declare module "*.sql?raw" {
   const sql: string;
   export default sql;
 }
+
+// The push module read as text, for the no-logging check in push.test.ts.
+declare module "*.ts?raw" {
+  const source: string;
+  export default source;
+}

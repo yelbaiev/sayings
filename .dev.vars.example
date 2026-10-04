@@ -19,3 +19,12 @@ TEAM_DOMAIN=https://your-team.cloudflareaccess.com
 # This is a public identifier, not a credential — but the Worker refuses to start without it,
 # because an unset audience would make JWT validation meaningless.
 POLICY_AUD=
+
+# Optional — reminders (Settings → Reminders). Without these the app runs as before and the icon
+# count still works; only the push notification is skipped. In production create them with
+# `npm run push:keys -- --subject https://your-app.workers.dev`, which stores them as Worker secrets
+# without displaying the private key. For local development, generate a pair the same way and paste
+# it here; never commit real values.
+VAPID_PUBLIC_KEY=
+VAPID_PRIVATE_KEY=
+VAPID_SUBJECT=

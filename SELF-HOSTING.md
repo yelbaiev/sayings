@@ -203,6 +203,26 @@ Snapshots taken before 1.4.3 (`schema: 1`) still restore the ledger and print a 
 no passkeys, main currency or currency list, so sign in through Cloudflare Access (or claim the
 household again) and check the main currency in Settings.
 
+## Reminders (optional)
+
+Settings → Reminders puts a count of due recurring payments on the app icon, and sends a
+notification to each phone that turns it on. The icon count works with no setup. Notifications need
+a key pair this installation signs them with, stored as Worker secrets:
+
+```sh
+npm run push:keys -- --subject https://your-app.workers.dev
+```
+
+The subject is the contact a push service (Apple's, for an iPhone) can use for your installation;
+your app's address is enough, or use a `mailto:`. The script stores `VAPID_SUBJECT`,
+`VAPID_PUBLIC_KEY` and `VAPID_PRIVATE_KEY` with `wrangler secret put` and never displays the private
+key. Running it again makes a new pair. Phones re-subscribe on their next start, so nothing breaks,
+but a phone not opened in the meantime misses notifications until it is.
+
+On an iPhone, reminders only work in the app added to the Home Screen (iOS 16.4 or later). Each
+person turns them on for their own phone and allows notifications once, then can check delivery
+with **Send a test**.
+
 ## Importing a lot of history
 
 D1's free tier allows 100,000 rows written per day, and each index counts as a written row. A

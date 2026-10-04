@@ -66,6 +66,12 @@ export default tseslint.config(
   },
 
   {
+    // The hand-written push handler imported into the generated service worker (vite.config.ts).
+    files: ["public/push-sw.js"],
+    languageOptions: { globals: globals.serviceworker },
+  },
+
+  {
     // Build tooling and one-off maintenance scripts, which legitimately run in Node.
     files: ["vite.config.ts", "eslint.config.js", "vitest.config.ts", "scripts/**/*.{js,mjs,ts}"],
     languageOptions: { globals: globals.node },

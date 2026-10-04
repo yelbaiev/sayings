@@ -122,7 +122,7 @@ Sources: [Badging for Home Screen Web Apps](https://webkit.org/blog/14112/badgin
   - On an iPhone: turn the switch on, allow notifications, close the app. With a payment due, the
     icon shows the number.
 
-### Phase 2 — Push plumbing and "Send a test"
+### Phase 2 — Push plumbing and "Send a test" — shipped 1.4.8
 
 - **Goal:** the server can deliver an encrypted notification to a subscribed iPhone.
 - **Files in scope:**
@@ -143,9 +143,9 @@ Sources: [Badging for Home Screen Web Apps](https://webkit.org/blog/14112/badgin
     - `POST /api/push/test`, which sends to the caller's own devices
   - **Service worker:** `push` shows the payload's title and body and calls `setAppBadge(count)`;
     `notificationclick` focuses or opens `/recurring`.
-  - **Keys:**
-    - `VAPID_PUBLIC_KEY` as a var
-    - `VAPID_PRIVATE_KEY` and `VAPID_SUBJECT` (`mailto:` contact) as Worker secrets
+  - **Keys:** `VAPID_PUBLIC_KEY`, `VAPID_PRIVATE_KEY` and `VAPID_SUBJECT` are all Worker secrets
+    (not config vars), so neither wrangler config changes. The subject is the app's https address,
+    not an email.
     - `npm run push:keys` generates the key pair
     - if they're missing, the switch explains that reminders aren't set up on this installation
   - **Dead subscriptions:** a 404 or 410 from the push service deletes the row.

@@ -7,6 +7,7 @@ import {
   disableReminders,
   enableReminders,
   reminderAvailability,
+  sendTestNotification,
   useRemindersOn,
 } from "~/lib/notifications";
 import { put } from "~/db/mutations";
@@ -499,6 +500,8 @@ export function RemindersSection() {
   const { t } = useApp();
   const on = useRemindersOn();
   const [busy, setBusy] = useState(false);
+  const [testing, setTesting] = useState(false);
+  const [toast, setToast] = useState<ToastSpec | null>(null);
   // Read on every render: the permission can change in the system Settings while the app is open.
   const availability = reminderAvailability();
   const usable = availability === "available";
@@ -531,7 +534,33 @@ export function RemindersSection() {
           />
         </label>
         <p className={HINT}>{hint}</p>
+
+        {on && usable && (
+          <Button
+            size="sm"
+            layoutClassName="mt-3"
+            disabled={testing}
+            onClick={() => {
+              setTesting(true);
+              void sendTestNotification()
+                .then((result) =>
+                  setToast({
+                    message:
+                      result === "sent"
+                        ? t("settings.remindersTestSent")
+                        : result === "not-configured"
+                          ? t("settings.remindersNotConfigured")
+                          : t("settings.remindersTestFailed"),
+                  }),
+                )
+                .finally(() => setTesting(false));
+            }}
+          >
+            {t("settings.remindersTest")}
+          </Button>
+        )}
       </div>
+      {toast && <Toast spec={toast} onDismiss={() => setToast(null)} />}
     </section>
   );
 }

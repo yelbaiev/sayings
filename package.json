@@ -1,6 +1,6 @@
 {
   "name": "sayings",
-  "version": "1.4.7",
+  "version": "1.4.8",
   "type": "module",
   "license": "MIT",
   "description": "SAYings — offline-first household finance and budgeting PWA you host on your own Cloudflare account",
@@ -20,6 +20,7 @@
     "db:backup": "node scripts/db-backup.mjs",
     "db:migrate": "wrangler d1 migrations apply DB --remote -c \"$(node scripts/wrangler-config.mjs --path)\"",
     "db:restore": "node scripts/db-restore.mjs",
+    "push:keys": "node scripts/push-keys.mjs",
     "lint": "eslint .",
     "typecheck": "tsc -p tsconfig.json && tsc -p tsconfig.worker.json && tsc -p tsconfig.tests.json && tsc -p tsconfig.node.json",
     "test": "vitest run",

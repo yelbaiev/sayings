@@ -63,6 +63,9 @@ export function snapshotToStatements(json) {
 
   statements.push(
     "DELETE FROM auth_sessions;",
+    // Device state, not household data (migration 0016). Cleared like sessions: each phone turns
+    // reminders on again. Its member_id would otherwise point at rows the restore replaces.
+    "DELETE FROM push_subscriptions;",
     "DELETE FROM auth_challenges;",
     "DELETE FROM invites;",
   );

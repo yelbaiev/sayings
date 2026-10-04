@@ -57,6 +57,8 @@ export default defineConfig({
       workbox: {
         navigateFallbackDenylist: [/^\/api\//],
         globPatterns: ["**/*.{js,css,html,svg,png,woff2}"],
+        // Reminders: the push and notification-tap handlers, written by hand in public/.
+        importScripts: ["push-sw.js"],
       },
       manifest: false, // public/manifest.webmanifest is maintained by hand
     }),

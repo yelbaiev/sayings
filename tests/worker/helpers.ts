@@ -18,6 +18,7 @@ export async function resetHousehold(): Promise<void> {
     // them is a constraint failure that reads as a flake in whichever test runs second.
     env.DB.prepare(`DELETE FROM credentials`),
     env.DB.prepare(`DELETE FROM auth_sessions`),
+    env.DB.prepare(`DELETE FROM push_subscriptions`),
     env.DB.prepare(`DELETE FROM invites`),
     env.DB.prepare(`DELETE FROM auth_challenges`),
     env.DB.prepare(`DELETE FROM transactions`),

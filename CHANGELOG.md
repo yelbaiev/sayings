@@ -1,5 +1,11 @@
 # Changelog
 
+## Version 1.4.8
+
+- Added: reminders can now reach your phone as a notification. With Settings → Reminders on, the app registers the phone for notifications; "Send a test" sends one straight away — your due payments if any are due, otherwise a short confirmation. The daily 08:00 reminder comes next
+- Added: a notification also updates the count on the app icon while the app is closed; tapping it opens Regular payments
+- Changed: phones that turned reminders on in 1.4.7 are registered for notifications the next time the app opens
+
 ## Version 1.4.7
 
 - Added: Settings → Reminders. Turn on "Due payments" and the SAYings icon shows how many of your regular payments are due. iPhone asks once for permission to show notifications, which the count needs; it updates each time you open the app. Each phone is switched on separately
