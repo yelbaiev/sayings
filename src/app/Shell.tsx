@@ -46,10 +46,18 @@ const RIGHT_TABS: Tab[] = [
   { name: "settings", path: "/settings", Icon: SettingsIcon, labelKey: "nav.settings" },
 ];
 
+/** The kind named by a `?add=` link, or undefined. Exported for its test. */
+export function readDeepLinkKind(search: string): TxKind | undefined {
+  const value = new URLSearchParams(search).get("add");
+  return value === "expense" || value === "income" || value === "transfer" ? value : undefined;
+}
+
 export function Shell({ children }: { children: ReactNode }) {
   const { t } = useApp();
   const { route, navigate } = useRouter();
-  const [entryOpen, setEntryOpen] = useState(false);
+  /** `?add=…` at launch — a home-screen shortcut or any other link. See the effect below. */
+  const [deepLinkKind] = useState(() => readDeepLinkKind(window.location.search));
+  const [entryOpen, setEntryOpen] = useState(deepLinkKind !== undefined);
   const [toast, setToast] = useState<ToastSpec | null>(null);
   /**
    * Privacy mode, for recording the screen over real data: everything marked `sensitive` blurs.
@@ -72,7 +80,7 @@ export function Shell({ children }: { children: ReactNode }) {
   // deadlock — it armed the hold timer only when a previous transaction existed, then opened
   // the sheet only if that timer had been armed, so on an empty ledger the button did nothing.
   /** Set by the e/i/t shortcuts so the sheet opens on the right kind. */
-  const [entryKind, setEntryKind] = useState<TxKind | undefined>(undefined);
+  const [entryKind, setEntryKind] = useState<TxKind | undefined>(deepLinkKind);
 
   const pressGesture = useMemo(
     () =>
@@ -129,6 +137,22 @@ export function Shell({ children }: { children: ReactNode }) {
     document.addEventListener("keydown", onKeyDown);
     return () => document.removeEventListener("keydown", onKeyDown);
   }, []);
+
+  /*
+   * Deep links: `?add=expense`, `?add=income`, `?add=transfer` open the entry sheet on that kind.
+   *
+   * What the manifest's long-press shortcuts point at (public/manifest.webmanifest). iOS does not
+   * show those shortcuts yet; Android and desktop Chrome do, and launching one loads the app at that
+   * URL — so it is read once, at start, into the sheet's initial state (see deepLinkKind above).
+   * The parameter is then removed with `replace`, so neither Back nor a reload reopens the sheet.
+   */
+  useEffect(() => {
+    if (!deepLinkKind) return;
+    const rest = new URLSearchParams(window.location.search);
+    rest.delete("add");
+    const query = rest.toString();
+    navigate(`${window.location.pathname}${query ? `?${query}` : ""}`, { replace: true });
+  }, [deepLinkKind, navigate]);
 
   const renderTab = (tab: Tab) => (
     <button

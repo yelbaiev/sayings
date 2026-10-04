@@ -168,3 +168,36 @@ describe("the Shell FAB and the account being viewed", () => {
     expect(document.querySelector("[data-slot=account-balance]")).toBeNull();
   });
 });
+
+describe("home-screen shortcut links", () => {
+  it("reads only the three kinds from ?add=", async () => {
+    const { readDeepLinkKind } = await import("~/app/Shell");
+    expect(readDeepLinkKind("?add=expense")).toBe("expense");
+    expect(readDeepLinkKind("?add=income")).toBe("income");
+    expect(readDeepLinkKind("?add=transfer")).toBe("transfer");
+    expect(readDeepLinkKind("?add=anything")).toBeUndefined();
+    expect(readDeepLinkKind("")).toBeUndefined();
+  });
+
+  it("opens the entry sheet on launch at /?add=income, then drops the parameter", async () => {
+    window.history.replaceState({}, "", "/?add=income");
+    renderInApp(
+      <RouterProvider>
+        <Shell>{null}</Shell>
+      </RouterProvider>,
+    );
+    expect(await screen.findByRole("dialog")).toBeTruthy();
+    // Removed with replace, so Back or a reload does not reopen the sheet.
+    expect(window.location.search).toBe("");
+  });
+
+  it("does nothing on a plain launch", () => {
+    window.history.replaceState({}, "", "/");
+    renderInApp(
+      <RouterProvider>
+        <Shell>{null}</Shell>
+      </RouterProvider>,
+    );
+    expect(screen.queryByRole("dialog")).toBeNull();
+  });
+});

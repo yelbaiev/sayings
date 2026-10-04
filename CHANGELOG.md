@@ -1,5 +1,10 @@
 # Changelog
 
+## Version 1.4.6
+
+- Added: long-press shortcuts on the app icon — Add expense, Add income, History. They show on Android and in desktop Chrome or Edge; iPhone doesn't offer them for home-screen web apps yet, and they'll appear there if Apple adds support
+- Added: links that open the app straight into a new entry — `/?add=expense`, `/?add=income`, `/?add=transfer`
+
 ## Version 1.4.5
 
 - Fixed: a rollover budget counted the oldest three years of history instead of the most recent three, so the carried-over amount could be badly off — even the wrong sign
