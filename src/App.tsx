@@ -4,7 +4,12 @@ import { AppProvider, type Me } from "~/app/AppContext";
 import { Button } from "~/ui/Button";
 import { CurrencySetup } from "~/app/CurrencySetup";
 import { RouterProvider, useRouter } from "~/app/router";
-import { ClaimScreen, JoinScreen, LoginScreen } from "~/app/AuthScreens";
+import {
+  ClaimScreen,
+  JoinScreen,
+  LoginScreen,
+  SignInAgainScreen,
+} from "~/app/AuthScreens";
 import { Shell } from "~/app/Shell";
 import { startSync } from "~/db/sync-client";
 import { AccountsPage } from "~/features/accounts/AccountsPage";
@@ -17,14 +22,21 @@ import { HistoryPage } from "~/features/transactions/HistoryPage";
 import { ImportRoute } from "~/features/import/ImportRoute";
 import { RecurringPage } from "~/features/recurring/RecurringPage";
 import { detectLocale } from "~/i18n";
-import { ApiError, ReauthRequiredError, getMe } from "~/lib/api";
+import {
+  ApiError,
+  ReauthFailedError,
+  ReauthRequiredError,
+  getMe,
+} from "~/lib/api";
 import { finishHardReload } from "~/lib/hard-reload";
 
 export default function App() {
   const [me, setMe] = useState<Me | null>(null);
   const [error, setError] = useState<string | null>(null);
   /** Which sign-in door to show, when the API says we are not in. */
-  const [authState, setAuthState] = useState<"unclaimed" | "login" | null>(null);
+  const [authState, setAuthState] = useState<
+    "unclaimed" | "login" | "expired" | null
+  >(null);
   /*
    * Latched locally rather than re-fetching `/api/me`. The save has already returned by the time this
    * is set, so the server agrees; a refetch would only add a blank frame between the two screens.
@@ -55,6 +67,11 @@ export default function App() {
       .catch((cause: Error) => {
         // A reauth navigation is already in flight — showing an error would flash on the way out.
         if (cause instanceof ReauthRequiredError) return;
+        // Access was already tried once in this tab; ask, rather than loop or sit on a blank page.
+        if (cause instanceof ReauthFailedError) {
+          setAuthState("expired");
+          return;
+        }
 
         /*
          * The server says which door fits: a fresh deployment gets claimed, a claimed one gets the
@@ -79,6 +96,7 @@ export default function App() {
   if (window.location.pathname === "/join") return <JoinScreen />;
   if (authState === "unclaimed") return <ClaimScreen />;
   if (authState === "login") return <LoginScreen />;
+  if (authState === "expired") return <SignInAgainScreen />;
 
   if (error) {
     return (

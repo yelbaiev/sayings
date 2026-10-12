@@ -1,4 +1,7 @@
-import { startAuthentication, startRegistration } from "@simplewebauthn/browser";
+import {
+  startAuthentication,
+  startRegistration,
+} from "@simplewebauthn/browser";
 import { useState } from "react";
 import {
   authClaimOptions,
@@ -7,6 +10,7 @@ import {
   authInviteVerify,
   authLoginOptions,
   authLoginVerify,
+  startReauth,
 } from "~/lib/api";
 import { Button } from "~/ui/Button";
 import { CARD, HINT, PAGE, PAGE_TITLE } from "~/ui/recipes";
@@ -24,7 +28,13 @@ import { CARD, HINT, PAGE, PAGE_TITLE } from "~/ui/recipes";
  * one-time invite link. `authState` from the API decides which of these screens the boot shows.
  */
 
-function AuthShell({ title, children }: { title: string; children: React.ReactNode }) {
+function AuthShell({
+  title,
+  children,
+}: {
+  title: string;
+  children: React.ReactNode;
+}) {
   return (
     <main className={PAGE}>
       <div className="mx-auto max-w-md pt-[10dvh]">
@@ -68,8 +78,8 @@ export function ClaimScreen() {
   return (
     <AuthShell title="Claim this installation">
       <p className="mb-3 text-sm text-muted-foreground">
-        This deployment has no owner yet. Create the owner account with a passkey — FaceID, TouchID
-        or your device unlock. No password, no email.
+        This deployment has no owner yet. Create the owner account with a
+        passkey — FaceID, TouchID or your device unlock. No password, no email.
       </p>
       <input
         value={name}
@@ -89,8 +99,8 @@ export function ClaimScreen() {
       </Button>
       {error && <p className="mt-2 text-xs text-destructive">{error}</p>}
       <p className={HINT}>
-        Anyone else joins later by an invite link from Settings. If this is not your deployment,
-        close the page.
+        Anyone else joins later by an invite link from Settings. If this is not
+        your deployment, close the page.
       </p>
     </AuthShell>
   );
@@ -105,7 +115,9 @@ export function LoginScreen() {
     setError(null);
     try {
       const { challengeId, options } = await authLoginOptions();
-      const response = await startAuthentication({ optionsJSON: options as never });
+      const response = await startAuthentication({
+        optionsJSON: options as never,
+      });
       await authLoginVerify({ challengeId, response });
       window.location.replace("/");
     } catch (cause) {
@@ -116,14 +128,44 @@ export function LoginScreen() {
 
   return (
     <AuthShell title="SAYings">
-      <p className="mb-3 text-sm text-muted-foreground">Sign in with your passkey.</p>
-      <Button variant="primary" block disabled={busy} onClick={() => void login()}>
+      <p className="mb-3 text-sm text-muted-foreground">
+        Sign in with your passkey.
+      </p>
+      <Button
+        variant="primary"
+        block
+        disabled={busy}
+        onClick={() => void login()}
+      >
         {busy ? "Waiting for the passkey…" : "Sign in"}
       </Button>
       {error && <p className="mt-2 text-xs text-destructive">{error}</p>}
       <p className={HINT}>
-        Lost every device? The owner can send a new invite link — or see SELF-HOSTING.md for the
-        one-line reset.
+        Lost every device? The owner can send a new invite link — or see
+        SELF-HOSTING.md for the one-line reset.
+      </p>
+    </AuthShell>
+  );
+}
+
+/**
+ * The Cloudflare Access session is gone and one trip to the Access login did not bring it back —
+ * the code never arrived, or the login was closed. Shown instead of an empty page, which is what
+ * the installed app showed before: the boot had nothing to render and no way to say so.
+ */
+export function SignInAgainScreen() {
+  return (
+    <AuthShell title="SAYings">
+      <p className="mb-3 text-sm text-muted-foreground">
+        Your sign-in has expired. Sign in again to keep syncing — anything you
+        recorded on this device is still here.
+      </p>
+      <Button variant="primary" block onClick={startReauth}>
+        Sign in again
+      </Button>
+      <p className={HINT}>
+        No code in your inbox? Check spam for mail from Cloudflare, and that you
+        typed the address this installation lets in.
       </p>
     </AuthShell>
   );
@@ -141,7 +183,9 @@ export function JoinScreen() {
     setError(null);
     try {
       const { challengeId, options } = await authInviteOptions(inviteToken);
-      const response = await startRegistration({ optionsJSON: options as never });
+      const response = await startRegistration({
+        optionsJSON: options as never,
+      });
       await authInviteVerify({ challengeId, inviteToken, name, response });
       window.location.replace("/");
     } catch (cause) {
@@ -154,7 +198,8 @@ export function JoinScreen() {
     return (
       <AuthShell title="Join">
         <p className="text-sm text-muted-foreground">
-          This page needs an invite link. Ask the owner to send you one from Settings.
+          This page needs an invite link. Ask the owner to send you one from
+          Settings.
         </p>
       </AuthShell>
     );
@@ -163,7 +208,8 @@ export function JoinScreen() {
   return (
     <AuthShell title="Join this household">
       <p className="mb-3 text-sm text-muted-foreground">
-        You have been invited. Pick a name and create your passkey — that is the whole sign-up.
+        You have been invited. Pick a name and create your passkey — that is the
+        whole sign-up.
       </p>
       <input
         value={name}

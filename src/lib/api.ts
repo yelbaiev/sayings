@@ -33,16 +33,47 @@ export class ReauthRequiredError extends Error {
 }
 
 /**
+ * Thrown instead when a reauth navigation already happened in this tab and did not help. Nothing is
+ * in flight, so the caller must show something — the boot renders a "Sign in again" screen.
+ */
+export class ReauthFailedError extends Error {
+  constructor() {
+    super("Still not signed in after returning to Cloudflare Access");
+    this.name = "ReauthFailedError";
+  }
+}
+
+/**
+ * Where the browser goes to meet Access in a top-level context.
+ *
+ * Not a reload of the current page: the service worker answers every navigation outside /api/ from
+ * its precache, so a reload never reaches the edge and Access never gets to show its login. The
+ * installed iPhone app sat on an empty screen exactly that way. /api/* is on the service worker's
+ * denylist, so this request does reach Access; once it passes, the Worker sends the browser back to
+ * `to`.
+ */
+export function reauthUrl(): string {
+  const { pathname, search, hash } = window.location;
+  return `/api/reauth?to=${encodeURIComponent(pathname + search + hash)}`;
+}
+
+/** Clears the loop guard and sends the browser to Access. The "Sign in again" button. */
+export function startReauth(): void {
+  sessionStorage.removeItem(REAUTH_GUARD_KEY);
+  window.location.assign(reauthUrl());
+}
+
+/**
  * Hands the browser back to Access so it can re-authenticate in a top-level context.
- * Guarded by sessionStorage: if a reload does not fix it, we must not loop forever on a
+ * Guarded by sessionStorage: if one round trip does not fix it, we must not loop forever on a
  * phone — better to surface the error to the caller.
  */
 function requestReauth(): never {
   if (sessionStorage.getItem(REAUTH_GUARD_KEY)) {
-    throw new ReauthRequiredError();
+    throw new ReauthFailedError();
   }
   sessionStorage.setItem(REAUTH_GUARD_KEY, "1");
-  window.location.assign(window.location.href);
+  window.location.assign(reauthUrl());
   throw new ReauthRequiredError();
 }
 
@@ -51,7 +82,10 @@ function clearReauthGuard(): void {
   sessionStorage.removeItem(REAUTH_GUARD_KEY);
 }
 
-export async function apiFetch<T>(path: string, init: RequestInit = {}): Promise<T> {
+export async function apiFetch<T>(
+  path: string,
+  init: RequestInit = {},
+): Promise<T> {
   const response = await fetch(path, {
     ...init,
     redirect: "manual",
@@ -137,7 +171,11 @@ export interface RepriceResult {
  */
 export async function changeBaseCurrency(
   base: string,
-  onProgress?: (done: number, remaining: number, ratesRemaining: number) => void,
+  onProgress?: (
+    done: number,
+    remaining: number,
+    ratesRemaining: number,
+  ) => void,
 ): Promise<RepriceResult> {
   let result = await apiFetch<RepriceResult>("/api/household/base", {
     method: "POST",
@@ -183,7 +221,8 @@ export async function getHealth(): Promise<Health | null> {
       headers: { Accept: "application/json" },
       redirect: "manual",
     });
-    if (!response.headers.get("content-type")?.includes("application/json")) return null;
+    if (!response.headers.get("content-type")?.includes("application/json"))
+      return null;
     return (await response.json()) as Health;
   } catch {
     return null;
@@ -224,9 +263,9 @@ export const uploadReceipt = (blob: Blob) =>
 
 /** Best-effort: a leftover object costs a few hundred kilobytes, a failed save costs the entry. */
 export const deleteReceipt = (key: string) =>
-  apiFetch<{ removed: boolean }>(`/api/receipts/${key}`, { method: "DELETE" }).catch(
-    () => ({ removed: false }),
-  );
+  apiFetch<{ removed: boolean }>(`/api/receipts/${key}`, {
+    method: "DELETE",
+  }).catch(() => ({ removed: false }));
 
 /* -------------------------------------------------------------------------- passkeys */
 
@@ -247,16 +286,20 @@ const post = <T>(path: string, body: unknown) =>
     body: JSON.stringify(body),
   });
 
-export const authClaimOptions = () => post<CeremonyOptions>("/api/auth/claim/options", {});
+export const authClaimOptions = () =>
+  post<CeremonyOptions>("/api/auth/claim/options", {});
 export const authClaimVerify = (payload: {
   challengeId: string;
   name: string;
   response: unknown;
 }) => post<{ id: string }>("/api/auth/claim/verify", payload);
 
-export const authLoginOptions = () => post<CeremonyOptions>("/api/auth/login/options", {});
-export const authLoginVerify = (payload: { challengeId: string; response: unknown }) =>
-  post<{ id: string }>("/api/auth/login/verify", payload);
+export const authLoginOptions = () =>
+  post<CeremonyOptions>("/api/auth/login/options", {});
+export const authLoginVerify = (payload: {
+  challengeId: string;
+  response: unknown;
+}) => post<{ id: string }>("/api/auth/login/verify", payload);
 
 export const authInviteOptions = (inviteToken: string) =>
   post<CeremonyOptions>("/api/auth/invite/options", { inviteToken });
@@ -270,4 +313,7 @@ export const authInviteVerify = (payload: {
 export const authLogout = () => post<{ ok: boolean }>("/api/auth/logout", {});
 
 export const createInviteLink = () =>
-  post<{ token: string; path: string; expiresInHours: number }>("/api/invites", {});
+  post<{ token: string; path: string; expiresInHours: number }>(
+    "/api/invites",
+    {},
+  );

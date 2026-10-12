@@ -1,5 +1,10 @@
 # Changelog
 
+## Version 1.5.3
+
+- Fixed: when the sign-in expired, the installed iPhone app showed a dark empty screen and never reached the login page. It now goes to the Cloudflare sign-in and returns to the screen you were on
+- Added: if signing in again doesn't work the first time (for example the code never arrived), the app shows a "Sign in again" button instead of a blank page
+
 ## Version 1.5.2
 
 - Added: on Android, short vibrations as feedback — a light tap when the + menu opens, a pulse when an entry, quick tile or repeat is saved, and a double pulse when something is deleted. iPhone doesn't let web apps vibrate, so nothing changes there

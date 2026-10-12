@@ -1,5 +1,11 @@
 import { Hono } from "hono";
-import { AuthError, isAccessConfigured, verifyAccess, type AccessIdentity } from "./auth";
+import {
+  AuthError,
+  isAccessConfigured,
+  safeReturnPath,
+  verifyAccess,
+  type AccessIdentity,
+} from "./auth";
 import { latestBackup, listBackups, runBackup } from "./backup";
 import {
   ensureMember,
@@ -8,7 +14,12 @@ import {
   setHouseholdCurrencies,
   type MemberRecord,
 } from "./db";
-import { backfillRange, ratesSince, reconcileEstimatedRates, runDailyFxUpdate } from "./fx";
+import {
+  backfillRange,
+  ratesSince,
+  reconcileEstimatedRates,
+  runDailyFxUpdate,
+} from "./fx";
 import {
   deleteReceipt,
   isOwnReceiptKey,
@@ -48,7 +59,12 @@ import {
 import { runReminders } from "./reminders";
 import { repriceToBase } from "./reprice";
 import { SyncError, handleSync } from "./sync";
-import { isNewer, isUpdateCheckEnabled, runUpdateCheck, storedRelease } from "./update-check";
+import {
+  isNewer,
+  isUpdateCheckEnabled,
+  runUpdateCheck,
+  storedRelease,
+} from "./update-check";
 
 type AppEnv = {
   // The VAPID secrets are optional and set with `wrangler secret put`, so they are not in the
@@ -103,6 +119,16 @@ api.get("/health", async (c) => {
 });
 
 /**
+ * The far end of the client's reauth trip (src/lib/api.ts). Cloudflare Access sits in front of it
+ * like every other path, so a browser that reaches this handler has just signed in — all that is
+ * left is to send it back to the screen it came from.
+ *
+ * Unauthenticated in the Worker on purpose: it reads nothing and returns no data, and on a
+ * passkey-only installation it must not answer with a 401 the browser would render as JSON.
+ */
+api.get("/reauth", (c) => c.redirect(safeReturnPath(c.req.query("to")), 302));
+
+/**
  * Refuses every authenticated route while the database is behind the code — see schema-guard.ts.
  * Ahead of authentication on purpose: the answer does not depend on who is asking, and someone
  * who cannot get past a broken schema should be told that rather than told to sign in again.
@@ -123,31 +149,52 @@ api.post("/auth/claim/options", async (c) => {
   try {
     return c.json(await claimOptions(c.env.DB, c.req.raw));
   } catch (error) {
-    if (error instanceof AuthFlowError) return c.json({ error: error.message }, error.status as 409);
+    if (error instanceof AuthFlowError)
+      return c.json({ error: error.message }, error.status as 409);
     throw error;
   }
 });
 
 api.post("/auth/claim/verify", async (c) => {
   try {
-    const { member, sessionToken } = await claimVerify(c.env.DB, c.req.raw, await c.req.json());
+    const { member, sessionToken } = await claimVerify(
+      c.env.DB,
+      c.req.raw,
+      await c.req.json(),
+    );
     c.header("Set-Cookie", sessionCookie(sessionToken));
-    return c.json({ id: member.id, display_name: member.display_name, role: member.role });
+    return c.json({
+      id: member.id,
+      display_name: member.display_name,
+      role: member.role,
+    });
   } catch (error) {
-    if (error instanceof AuthFlowError) return c.json({ error: error.message }, error.status as 403);
+    if (error instanceof AuthFlowError)
+      return c.json({ error: error.message }, error.status as 403);
     throw error;
   }
 });
 
-api.post("/auth/login/options", async (c) => c.json(await loginOptions(c.env.DB, c.req.raw)));
+api.post("/auth/login/options", async (c) =>
+  c.json(await loginOptions(c.env.DB, c.req.raw)),
+);
 
 api.post("/auth/login/verify", async (c) => {
   try {
-    const { member, sessionToken } = await loginVerify(c.env.DB, c.req.raw, await c.req.json());
+    const { member, sessionToken } = await loginVerify(
+      c.env.DB,
+      c.req.raw,
+      await c.req.json(),
+    );
     c.header("Set-Cookie", sessionCookie(sessionToken));
-    return c.json({ id: member.id, display_name: member.display_name, role: member.role });
+    return c.json({
+      id: member.id,
+      display_name: member.display_name,
+      role: member.role,
+    });
   } catch (error) {
-    if (error instanceof AuthFlowError) return c.json({ error: error.message }, error.status as 403);
+    if (error instanceof AuthFlowError)
+      return c.json({ error: error.message }, error.status as 403);
     throw error;
   }
 });
@@ -155,20 +202,32 @@ api.post("/auth/login/verify", async (c) => {
 api.post("/auth/invite/options", async (c) => {
   try {
     const body = (await c.req.json()) as { inviteToken?: string };
-    return c.json(await inviteOptions(c.env.DB, c.req.raw, body.inviteToken ?? ""));
+    return c.json(
+      await inviteOptions(c.env.DB, c.req.raw, body.inviteToken ?? ""),
+    );
   } catch (error) {
-    if (error instanceof AuthFlowError) return c.json({ error: error.message }, error.status as 403);
+    if (error instanceof AuthFlowError)
+      return c.json({ error: error.message }, error.status as 403);
     throw error;
   }
 });
 
 api.post("/auth/invite/verify", async (c) => {
   try {
-    const { member, sessionToken } = await inviteVerify(c.env.DB, c.req.raw, await c.req.json());
+    const { member, sessionToken } = await inviteVerify(
+      c.env.DB,
+      c.req.raw,
+      await c.req.json(),
+    );
     c.header("Set-Cookie", sessionCookie(sessionToken));
-    return c.json({ id: member.id, display_name: member.display_name, role: member.role });
+    return c.json({
+      id: member.id,
+      display_name: member.display_name,
+      role: member.role,
+    });
   } catch (error) {
-    if (error instanceof AuthFlowError) return c.json({ error: error.message }, error.status as 403);
+    if (error instanceof AuthFlowError)
+      return c.json({ error: error.message }, error.status as 403);
     throw error;
   }
 });
@@ -214,7 +273,10 @@ api.use("*", async (c, next) => {
         `SELECT COUNT(*) AS count FROM members WHERE deleted = 0`,
       ).first<{ count: number }>();
       return c.json(
-        { error: error.message, authState: (members?.count ?? 0) === 0 ? "unclaimed" : "login" },
+        {
+          error: error.message,
+          authState: (members?.count ?? 0) === 0 ? "unclaimed" : "login",
+        },
         error.status,
       );
     }
@@ -257,12 +319,15 @@ api.get("/me", async (c) => {
 /* -------------------------------------------------------------------- reminders (push) */
 
 /** The key a phone subscribes with, or null when this installation has no push keys. */
-api.get("/push/key", (c) => c.json({ publicKey: pushConfig(c.env)?.publicKey ?? null }));
+api.get("/push/key", (c) =>
+  c.json({ publicKey: pushConfig(c.env)?.publicKey ?? null }),
+);
 
 /** A phone turning reminders on. Stored against the caller; see worker/push.ts. */
 api.post("/push/subscribe", async (c) => {
   const text = await c.req.text();
-  if (text.length > 4096) return c.json({ error: "subscription too large" }, 413);
+  if (text.length > 4096)
+    return c.json({ error: "subscription too large" }, 413);
   let parsed;
   try {
     parsed = subscribeSchema.safeParse(JSON.parse(text));
@@ -279,7 +344,8 @@ api.post("/push/subscribe", async (c) => {
 /** A phone turning reminders off. Only ever the caller's own subscription. */
 api.delete("/push/subscribe", async (c) => {
   const body = (await c.req.json().catch(() => ({}))) as { endpoint?: unknown };
-  if (typeof body.endpoint !== "string") return c.json({ error: "endpoint required" }, 400);
+  if (typeof body.endpoint !== "string")
+    return c.json({ error: "endpoint required" }, 400);
   await removeSubscription(c.env.DB, c.get("member").id, body.endpoint);
   return c.json({ ok: true });
 });
@@ -290,18 +356,24 @@ api.delete("/push/subscribe", async (c) => {
  */
 api.post("/push/test", async (c) => {
   const config = pushConfig(c.env);
-  if (!config) return c.json({ error: "push is not set up on this installation" }, 503);
+  if (!config)
+    return c.json({ error: "push is not set up on this installation" }, 503);
   const member = c.get("member");
   const subscriptions = await subscriptionsFor(c.env.DB, member.id);
   if (subscriptions.length === 0) return c.json({ sent: 0, failed: 0 });
 
   const due = await duePayments(c.env.DB, member.id, kyivDate());
-  const message = due.length > 0 ? dueMessage(member.locale, due) : testMessage(member.locale);
+  const message =
+    due.length > 0
+      ? dueMessage(member.locale, due)
+      : testMessage(member.locale);
 
   let sent = 0;
   let failed = 0;
   for (const subscription of subscriptions) {
-    const result = await sendPush(subscription, message, config).catch(() => "failed" as const);
+    const result = await sendPush(subscription, message, config).catch(
+      () => "failed" as const,
+    );
     await recordResult(c.env.DB, subscription.endpoint, result);
     if (result === "sent") sent++;
     else failed++;
@@ -318,7 +390,10 @@ api.put("/household/currencies", async (c) => {
   const body = (await c.req.json()) as { base?: unknown; enabled?: unknown };
   try {
     return c.json(
-      await setHouseholdCurrencies(c.env.DB, { base: body.base, enabled: body.enabled }),
+      await setHouseholdCurrencies(c.env.DB, {
+        base: body.base,
+        enabled: body.enabled,
+      }),
     );
   } catch (error) {
     // The message names the offending code, never the body.
@@ -341,7 +416,11 @@ api.post("/household/base", async (c) => {
 
   try {
     if (!body.resume) {
-      await runBackup(c.env.DB, c.env.FILES, new Date().toISOString().slice(0, 10));
+      await runBackup(
+        c.env.DB,
+        c.env.FILES,
+        new Date().toISOString().slice(0, 10),
+      );
     }
     return c.json(await repriceToBase(c.env.DB, body.base));
   } catch (error) {
@@ -351,7 +430,9 @@ api.post("/household/base", async (c) => {
 
 api.post("/sync", async (c) => {
   try {
-    return c.json(await handleSync(c.env.DB, c.get("member"), await c.req.json()));
+    return c.json(
+      await handleSync(c.env.DB, c.get("member"), await c.req.json()),
+    );
   } catch (error) {
     if (error instanceof SyncError) {
       // The message names the offending field, never the payload.
@@ -380,7 +461,10 @@ api.get("/fx", async (c) => {
  * repeats until `requested` comes back zero.
  */
 api.post("/fx/backfill", async (c) => {
-  const body = (await c.req.json().catch(() => ({}))) as { from?: string; to?: string };
+  const body = (await c.req.json().catch(() => ({}))) as {
+    from?: string;
+    to?: string;
+  };
   const iso = /^\d{4}-\d{2}-\d{2}$/;
   if (!body.from || !body.to || !iso.test(body.from) || !iso.test(body.to)) {
     return c.json({ error: "from and to must be YYYY-MM-DD" }, 400);
@@ -398,11 +482,17 @@ api.get("/backups/latest", async (c) => {
   return latest ? c.json(latest) : c.json({}, 404);
 });
 
-api.get("/backups", async (c) => c.json({ backups: await listBackups(c.env.DB) }));
+api.get("/backups", async (c) =>
+  c.json({ backups: await listBackups(c.env.DB) }),
+);
 
 /** Manual backup, so the restore path can be exercised without waiting for the cron. */
 api.post("/backups/run", async (c) => {
-  const result = await runBackup(c.env.DB, c.env.FILES, new Date().toISOString().slice(0, 10));
+  const result = await runBackup(
+    c.env.DB,
+    c.env.FILES,
+    new Date().toISOString().slice(0, 10),
+  );
   return c.json(result);
 });
 
@@ -455,7 +545,10 @@ api.get("/backups/download", async (c) => {
   const key = c.req.query("key");
   // Constrain the key to the backup prefix: an unchecked key would let any object in the
   // bucket be read through this endpoint.
-  if (!key || !/^backups\/(daily|monthly)\/\d{4}-\d{2}-\d{2}\.json$/.test(key)) {
+  if (
+    !key ||
+    !/^backups\/(daily|monthly)\/\d{4}-\d{2}-\d{2}\.json$/.test(key)
+  ) {
     return c.json({ error: "unknown backup key" }, 400);
   }
 
@@ -499,7 +592,9 @@ export default {
         const run = await runReminders(env.DB, pushConfig(env));
         if (run.sent || run.failed || run.removed) {
           // Counts only: endpoints are capability URLs and stay out of logs.
-          console.log(`Reminders: ${run.sent} sent, ${run.failed} failed, ${run.removed} removed`);
+          console.log(
+            `Reminders: ${run.sent} sent, ${run.failed} failed, ${run.removed} removed`,
+          );
         }
       } catch (error) {
         console.error("Reminders failed:", (error as Error).message);
@@ -512,7 +607,9 @@ export default {
     try {
       const stored = await runDailyFxUpdate(env.DB, today);
       const reconciled = await reconcileEstimatedRates(env.DB);
-      console.log(`FX: stored ${stored} rates, reconciled ${reconciled} transactions`);
+      console.log(
+        `FX: stored ${stored} rates, reconciled ${reconciled} transactions`,
+      );
     } catch (error) {
       // A failed rate update must not cost the household its nightly backup.
       console.error("FX update failed:", (error as Error).message);
@@ -520,7 +617,9 @@ export default {
 
     try {
       const result = await runBackup(env.DB, env.FILES, today);
-      console.log(`Backup: ${result.key} (${result.rows} rows, ${result.bytes} bytes)`);
+      console.log(
+        `Backup: ${result.key} (${result.rows} rows, ${result.bytes} bytes)`,
+      );
     } catch (error) {
       console.error("Backup failed:", (error as Error).message);
     }

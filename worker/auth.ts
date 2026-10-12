@@ -49,7 +49,9 @@ function getJwks(teamDomain: string) {
 }
 
 function isConfigured(value: string | undefined): value is string {
-  return typeof value === "string" && value.length > 0 && !value.includes("CHANGEME");
+  return (
+    typeof value === "string" && value.length > 0 && !value.includes("CHANGEME")
+  );
 }
 
 /**
@@ -74,7 +76,10 @@ export async function verifyAccess(
 ): Promise<AccessIdentity> {
   // A misconfigured audience would make verification vacuous, so fail closed and loudly.
   if (!isConfigured(config.policyAud) || !isConfigured(config.teamDomain)) {
-    throw new AuthError("Access is not configured: set TEAM_DOMAIN and POLICY_AUD", 500);
+    throw new AuthError(
+      "Access is not configured: set TEAM_DOMAIN and POLICY_AUD",
+      500,
+    );
   }
 
   const token = request.headers.get("cf-access-jwt-assertion");
@@ -94,7 +99,8 @@ export async function verifyAccess(
     throw new AuthError("Invalid Cloudflare Access JWT", 403);
   }
 
-  const email = typeof payload.email === "string" ? payload.email.toLowerCase() : "";
+  const email =
+    typeof payload.email === "string" ? payload.email.toLowerCase() : "";
   if (!email) {
     // Service tokens authenticate without an email claim. This app has no machine callers,
     // so treat that as a rejection rather than inventing an identity for it.
@@ -102,4 +108,17 @@ export async function verifyAccess(
   }
 
   return { email, subject: payload.sub ?? "" };
+}
+
+/**
+ * The path a reauth round trip may return to: same-origin and nothing else.
+ *
+ * `to` arrives in a query string anyone can write, so an unchecked redirect would turn this
+ * installation's hostname into a link to anywhere. Only a plain path is accepted — not `//host`
+ * (protocol-relative) and not `/\host`, which browsers read the same way.
+ */
+export function safeReturnPath(to: string | undefined): string {
+  if (!to || !to.startsWith("/") || to.startsWith("//") || to.startsWith("/\\"))
+    return "/";
+  return to;
 }

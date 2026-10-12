@@ -1,5 +1,11 @@
 import { describe, expect, it } from "vitest";
-import { AuthError, isAccessConfigured, verifyAccess, type AccessConfig } from "../../worker/auth";
+import {
+  AuthError,
+  isAccessConfigured,
+  safeReturnPath,
+  verifyAccess,
+  type AccessConfig,
+} from "../../worker/auth";
 
 /**
  * These cover the fail-closed paths, which are the ones that matter: a misconfigured
@@ -70,8 +76,12 @@ describe("isAccessConfigured", () => {
   it("is false for unset, empty, or placeholder values", () => {
     expect(isAccessConfigured({ ...configured, policyAud: "" })).toBe(false);
     expect(isAccessConfigured({ ...configured, teamDomain: "" })).toBe(false);
-    expect(isAccessConfigured({ ...configured, policyAud: "CHANGEME" })).toBe(false);
-    expect(isAccessConfigured({ ...configured, teamDomain: "CHANGEME" })).toBe(false);
+    expect(isAccessConfigured({ ...configured, policyAud: "CHANGEME" })).toBe(
+      false,
+    );
+    expect(isAccessConfigured({ ...configured, teamDomain: "CHANGEME" })).toBe(
+      false,
+    );
     expect(isAccessConfigured({})).toBe(false);
   });
 
@@ -89,6 +99,26 @@ describe("isAccessConfigured", () => {
       await expect(
         verifyAccess(request(), config as AccessConfig),
       ).rejects.toMatchObject({ name: "AuthError", status: 500 });
+    }
+  });
+});
+
+describe("safeReturnPath", () => {
+  it("keeps a same-origin path with its query and hash", () => {
+    expect(safeReturnPath("/?add=expense")).toBe("/?add=expense");
+    expect(safeReturnPath("/history#top")).toBe("/history#top");
+  });
+
+  it("falls back to the root for anything that could leave the origin", () => {
+    for (const to of [
+      undefined,
+      "",
+      "https://evil.example/",
+      "//evil.example",
+      "/\\evil.example",
+      "evil",
+    ]) {
+      expect(safeReturnPath(to)).toBe("/");
     }
   });
 });

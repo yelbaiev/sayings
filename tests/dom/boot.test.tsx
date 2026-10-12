@@ -99,6 +99,19 @@ describe("the app boots", () => {
     expect(await screen.findByRole("button", { name: "Sign in" })).toBeTruthy();
   });
 
+  it("asks to sign in again when the Access trip did not bring the session back", async () => {
+    /*
+     * The installed iPhone app's black screen: Access had expired, the one reauth attempt was spent,
+     * and the boot swallowed the error with nothing to render. It must offer the way back instead.
+     */
+    const { ReauthFailedError } = await import("~/lib/api");
+    getMe.mockRejectedValueOnce(new ReauthFailedError());
+    render(<App />);
+    expect(
+      await screen.findByRole("button", { name: "Sign in again" }),
+    ).toBeTruthy();
+  });
+
   it("reports a failure instead of leaving a blank page", async () => {
     /*
      * The distinction that matters when someone says "black screen". A reachable app that failed says

@@ -39,6 +39,12 @@ two email addresses, and have the Worker verify the injected JWT.
   `fetch` from the installed PWA hits an opaque cross-origin redirect and the app silently
   stops syncing. Handled once in `src/lib/api.ts` via `redirect: "manual"` plus a guarded
   full-page navigation, and the service worker never precaches `/api/*`.
+- **That navigation must go through `/api/reauth`, not reload the page.** The service worker
+  answers every other navigation from its precache, so a reload never reaches Access: until
+  1.5.3 the installed app reloaded into the same cached shell, spent its one attempt and sat on
+  an empty screen. `/api/reauth?to=<path>` is on the service worker's denylist, so Access intercepts it;
+  once past, the Worker redirects back to `to` (same-origin paths only). If the trip still
+  doesn't restore a session, the boot shows a "Sign in again" screen rather than looping.
 - Identity comes from the JWT's `email` claim, mapped to a `members` row. Access service
   tokens (no email claim) are rejected — this app has no machine callers.
 - There can be no public page. Acceptable: there is nothing here to show anyone.
