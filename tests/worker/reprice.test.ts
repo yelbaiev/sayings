@@ -437,4 +437,18 @@ describe("budgets", () => {
     // A new rev, so the phones receive the converted figure.
     expect(budget!.rev).toBeGreaterThan(before);
   });
+
+  it("keep a limit set in another currency in that currency", async () => {
+    await env.DB.prepare(
+      `INSERT INTO budgets (id, household_id, category_id, period_month, amount_minor, currency, rollover, rev, updated_at, deleted)
+       VALUES ('b_travel', 'hh_default', 'cat_groceries', NULL, 30000, 'USD', 0, 1, 1, 0)`,
+    ).run();
+
+    await repriceFully("EUR");
+
+    const budget = await env.DB.prepare(
+      `SELECT amount_minor, currency, rev FROM budgets WHERE id = 'b_travel'`,
+    ).first<{ amount_minor: number; currency: string; rev: number }>();
+    expect(budget).toEqual({ amount_minor: 30000, currency: "USD", rev: 1 });
+  });
 });

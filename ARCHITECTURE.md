@@ -64,6 +64,10 @@ rates, stores files, and backs up — it never computes a report.
   suggestion (`src/lib/savings.ts`) is income − expenses less net transfers into `savings`-type
   accounts; the under-limit figure only explains where part of it came from. Rollover limits are
   left out of that figure because their unspent amount already belongs to next month.
+- **A budget limit keeps the currency it was set in.** It is converted to the base at today's rate
+  when read (`ToBase` in `src/lib/budget-engine.ts`) and shown back in its own currency; a limit
+  with no rate is left out rather than read as base. A base change converts only limits in the old
+  base (`worker/reprice.ts`).
 - **No dynamic code evaluation.** `no-eval` / `no-new-func` are errors; a test asserts the
   keypad's evaluator module contains neither.
 

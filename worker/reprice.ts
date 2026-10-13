@@ -149,8 +149,13 @@ async function convertibleDatesLeft(db: D1Database, newBase: Currency): Promise<
 }
 
 /**
- * Budgets not in the new base that a rate exists for, with that rate: the newest one for the
- * budget's currency, in the new base.
+ * Budgets priced in the old base that a rate exists for, with that rate: the newest one for the
+ * old base, in the new base.
+ *
+ * Only the old base's. A limit set in another currency on purpose — €300 for travel, in a hryvnia
+ * household — is kept in that currency through a base change; the app converts it to whatever the
+ * base is when it reads it. Converting it here used to be harmless only because every budget was in
+ * the base.
  *
  * Converted at today's rate rather than left as typed (decided 2026-10-03): a ₴20 000 grocery limit
  * left as 20 000 would read as €20 000 the moment spending is summed in euros, and every bar would
@@ -158,6 +163,7 @@ async function convertibleDatesLeft(db: D1Database, newBase: Currency): Promise<
  */
 async function pendingBudgets(
   db: D1Database,
+  oldBase: Currency,
   newBase: Currency,
 ): Promise<{ id: string; amount_minor: number; currency: Currency; rate: number }[]> {
   const { results } = await db
@@ -167,9 +173,9 @@ async function pendingBudgets(
                 WHERE f.quote = b.currency AND f.base = ?1
                 ORDER BY f.on_date DESC LIMIT 1) AS rate
          FROM budgets b
-        WHERE b.currency != ?1 AND b.deleted = 0`,
+        WHERE b.currency = ?2 AND b.currency != ?1 AND b.deleted = 0`,
     )
-    .bind(newBase)
+    .bind(newBase, oldBase)
     .all<{ id: string; amount_minor: number; currency: Currency; rate: number | null }>();
   return results.filter(
     (row): row is { id: string; amount_minor: number; currency: Currency; rate: number } =>
@@ -177,8 +183,12 @@ async function pendingBudgets(
   );
 }
 
-async function repriceBudgets(db: D1Database, newBase: Currency): Promise<number> {
-  const pending = await pendingBudgets(db, newBase);
+async function repriceBudgets(
+  db: D1Database,
+  oldBase: Currency,
+  newBase: Currency,
+): Promise<number> {
+  const pending = await pendingBudgets(db, oldBase, newBase);
   if (pending.length === 0) return 0;
 
   const now = Date.now();
@@ -340,7 +350,7 @@ export async function repriceToBase(db: D1Database, next: unknown): Promise<Repr
       .prepare(`SELECT COUNT(*) AS count FROM transactions WHERE fx_base != ? AND deleted = 0`)
       .bind(next)
       .first<{ count: number }>()) ?? { count: 0 };
-    if (count === 0 && (await pendingBudgets(db, next)).length === 0) {
+    if (count === 0 && (await pendingBudgets(db, oldBase, next)).length === 0) {
       return {
         base: next,
         dates: 0,
@@ -383,14 +393,14 @@ export async function repriceToBase(db: D1Database, next: unknown): Promise<Repr
   let budgets = 0;
   if (ratesRemaining === 0) {
     transactions = await repriceTransactions(db, oldBase, next);
-    budgets = await repriceBudgets(db, next);
+    budgets = await repriceBudgets(db, oldBase, next);
   }
 
   const { count } = (await db
     .prepare(`SELECT COUNT(*) AS count FROM transactions WHERE fx_base != ? AND deleted = 0`)
     .bind(next)
     .first<{ count: number }>()) ?? { count: 0 };
-  const budgetsLeft = (await pendingBudgets(db, next)).length;
+  const budgetsLeft = (await pendingBudgets(db, oldBase, next)).length;
 
   // Cleared only when there is nothing left, so an interrupted run keeps the one fact it needs.
   if (count === 0 && ratesRemaining === 0 && budgetsLeft === 0) {

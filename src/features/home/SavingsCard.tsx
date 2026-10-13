@@ -2,6 +2,7 @@ import type { Account, Budget, Category, Transaction } from "@shared/schema";
 import { useMemo } from "react";
 import { useApp } from "~/app/AppContext";
 import type { EntryPrefill } from "~/features/entry/EntrySheet";
+import { useToBase } from "~/db/useRates";
 import { formatMoney, formatMonth } from "~/lib/format";
 import { savingsAccountFor, savingsSuggestion } from "~/lib/savings";
 import { Amount } from "~/ui";
@@ -36,9 +37,10 @@ export function SavingsCard({
 }) {
   const { t, locale, baseCurrency } = useApp();
 
+  const toBase = useToBase(baseCurrency);
   const s = useMemo(
-    () => savingsSuggestion(transactions, accounts, budgets, categories, today),
-    [transactions, accounts, budgets, categories, today],
+    () => savingsSuggestion(transactions, accounts, budgets, categories, today, toBase),
+    [transactions, accounts, budgets, categories, today, toBase],
   );
   const target = savingsAccountFor(accounts, baseCurrency);
 

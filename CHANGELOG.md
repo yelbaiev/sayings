@@ -1,5 +1,11 @@
 # Changelog
 
+## Version 1.5.5
+
+- Added: a budget limit can be set in your second currency (Settings → Second currency) — for example €300 for travel. It's shown as "€210 / €300", with what it's worth in your main currency today underneath
+- Changed: a limit in your second currency is converted at today's rate when compared with your spending, so it keeps meaning €300 when the hryvnia moves
+- Fixed: changing the main currency no longer converts limits that were deliberately set in another currency; only limits in the old main currency are converted
+
 ## Version 1.5.4
 
 - Added: Home shows your budgets — the categories close to their limit, over it, or on pace to go over, with a link to all budgets. When everything is fine it's one "on track" line

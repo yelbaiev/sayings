@@ -229,6 +229,8 @@ const en = {
   "budgets.projected": "On track for {amount}",
   "budgets.empty": "No budgets set. Add one to track a category against a monthly limit.",
   "budgets.everyMonth": "Every month",
+  "budgets.inBase": "≈ {amount} at today's rate",
+  "budgets.noRate": "No rate for {currency} yet — this budget will show once one arrives.",
 
   "import.title": "Import",
   "import.dropFile": "Drop a CSV here, or choose a file",

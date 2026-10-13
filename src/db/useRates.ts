@@ -1,6 +1,7 @@
 import { convertMinor } from "@shared/money";
 import type { Currency } from "@shared/currency";
 import { useLiveQuery } from "dexie-react-hooks";
+import { useCallback } from "react";
 import { db } from "./dexie";
 
 /**
@@ -51,4 +52,16 @@ export function fromBaseAtLatest(
   const rate = rates.get(currency);
   if (!rate) return null;
   return convertMinor(minor, 1 / rate, base, currency);
+}
+
+/**
+ * `toBaseAtLatest` bound to today's rates, for engines that take a converter — budget limits set in a
+ * second currency. Stable while the rates are, so it can sit in a memo's dependencies.
+ */
+export function useToBase(base: Currency): (minor: number, currency: string) => number | null {
+  const rates = useLatestRates(base);
+  return useCallback(
+    (minor: number, currency: string) => toBaseAtLatest(minor, currency as Currency, rates, base),
+    [rates, base],
+  );
 }

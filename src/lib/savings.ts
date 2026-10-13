@@ -1,6 +1,6 @@
 import { signedMinor, type Minor } from "@shared/money";
 import type { Account, Budget, Category, Transaction } from "@shared/schema";
-import { budgetStatuses, type BudgetStatus } from "./budget-engine";
+import { budgetStatuses, type BudgetStatus, type ToBase } from "./budget-engine";
 import { addMonths, dayOfMonth, monthOf } from "./format";
 
 /**
@@ -56,6 +56,7 @@ export function savingsSuggestion(
   budgets: Budget[],
   categories: Category[],
   today: string,
+  toBase?: ToBase,
 ): SavingsSuggestion {
   const { month, inProgress } = suggestionMonth(today);
 
@@ -86,7 +87,7 @@ export function savingsSuggestion(
     else expenses += -signed;
   }
 
-  const statuses = budgetStatuses(budgets, categories, transactions, month, today);
+  const statuses = budgetStatuses(budgets, categories, transactions, month, today, toBase);
   let underLimits = 0;
   let underCount = 0;
   for (const status of statuses) {

@@ -257,6 +257,8 @@ const ru: Dictionary = {
   "budgets.projected": "Прогноз: {amount}",
   "budgets.empty": "Бюджетов нет. Добавьте, чтобы следить за категорией относительно лимита.",
   "budgets.everyMonth": "Каждый месяц",
+  "budgets.inBase": "≈ {amount} по сегодняшнему курсу",
+  "budgets.noRate": "Курса {currency} пока нет — бюджет появится, как только он придёт.",
 
   "import.title": "Импорт",
   "import.dropFile": "Перетащите CSV сюда или выберите файл",

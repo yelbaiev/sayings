@@ -229,4 +229,28 @@ describe("budgetStatuses", () => {
     const statuses = budgetStatuses([budget()], categories, [], "2026-08", "2026-08-31");
     expect(statuses).toHaveLength(1);
   });
+
+  // €1 = ₴45 for these: a converter of the shape the app passes, with no rate for USD.
+  const toBase = (minor: number, currency: string) =>
+    currency === "UAH" ? minor : currency === "EUR" ? minor * 45 : null;
+
+  it("converts a limit set in another currency before comparing it with spending", () => {
+    const eur = budget({ currency: "EUR", amount_minor: 30_000 }); // €300 = ₴13 500
+    const [status] = budgetStatuses([eur], [category()], [tx("2026-08-02", 900_000)], "2026-08", "2026-08-31", toBase);
+    expect(status!.effectiveLimit).toBe(1_350_000);
+    expect(status!.remaining).toBe(450_000);
+  });
+
+  it("carries rollover in base currency for a foreign limit", () => {
+    const eur = budget({ currency: "EUR", amount_minor: 30_000, rollover: 1 });
+    const rows = [tx("2026-07-01", 1_000_000), tx("2026-08-01", 100)];
+    const [status] = budgetStatuses([eur], [category()], rows, "2026-08", "2026-08-31", toBase);
+    // July left ₴3 500 of ₴13 500 unspent.
+    expect(status!.effectiveLimit).toBe(1_350_000 + 350_000);
+  });
+
+  it("leaves out a limit whose currency has no rate rather than reading it as base", () => {
+    const usd = budget({ currency: "USD", amount_minor: 30_000 });
+    expect(budgetStatuses([usd], [category()], [], "2026-08", "2026-08-31", toBase)).toEqual([]);
+  });
 });

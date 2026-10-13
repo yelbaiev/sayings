@@ -260,6 +260,8 @@ const uk: Dictionary = {
   "budgets.projected": "Прогноз: {amount}",
   "budgets.empty": "Бюджетів немає. Додайте, щоб відслідковувати категорію проти ліміту.",
   "budgets.everyMonth": "Щомісяця",
+  "budgets.inBase": "≈ {amount} за сьогоднішнім курсом",
+  "budgets.noRate": "Курсу {currency} ще немає — бюджет з'явиться, щойно він надійде.",
 
   "import.title": "Імпорт",
   "import.dropFile": "Перетягніть CSV сюди або виберіть файл",

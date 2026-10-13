@@ -2,6 +2,7 @@ import type { Budget, Category, Transaction } from "@shared/schema";
 import { useMemo } from "react";
 import { useApp } from "~/app/AppContext";
 import { Link } from "~/app/router";
+import { useBudgetFigures } from "~/features/budgets/useBudgetFigures";
 import { budgetStatuses } from "~/lib/budget-engine";
 import { formatMoney, monthOf } from "~/lib/format";
 import { cn } from "~/lib/cn";
@@ -31,11 +32,12 @@ export function BudgetGlance({
   transactions: Transaction[];
   today: string;
 }) {
-  const { t, locale, baseCurrency } = useApp();
+  const { t, locale } = useApp();
 
+  const { figures, toBase } = useBudgetFigures();
   const statuses = useMemo(
-    () => budgetStatuses(budgets, categories, transactions, monthOf(today), today),
-    [budgets, categories, transactions, today],
+    () => budgetStatuses(budgets, categories, transactions, monthOf(today), today, toBase),
+    [budgets, categories, transactions, today, toBase],
   );
 
   if (statuses.length === 0) return null;
@@ -55,41 +57,46 @@ export function BudgetGlance({
       </div>
 
       <div className={cn(CARD, "flex flex-col gap-3")}>
-        {flagged.slice(0, MAX_ROWS).map((status) => (
-          <div key={status.budget.id}>
-            <div className="flex items-center justify-between gap-3">
-              <span className="flex min-w-0 items-center gap-2">
-                <IconChip icon={status.category.icon} color={status.category.color} small />
-                <span className="truncate text-sm font-medium">{status.category.name}</span>
-              </span>
-              <span className="shrink-0 text-xs text-muted-foreground">
-                <Amount minor={status.spent} currency={baseCurrency} tone="neutral" /> /{" "}
-                <Amount minor={status.effectiveLimit} currency={baseCurrency} tone="muted" />
-              </span>
-            </div>
-            <div className="mt-1.5">
-              <Progress ratio={status.ratio} />
-            </div>
-            <div
-              className={cn(
-                "sensitive mt-1 text-xs",
-                status.remaining < 0 ? "text-destructive" : "text-muted-foreground",
-              )}
-            >
-              {status.remaining < 0
-                ? t("budgets.over", {
-                    amount: formatMoney(-status.remaining, baseCurrency, locale),
-                  })
-                : status.projected !== null && status.projected > status.effectiveLimit
-                  ? t("budgets.projected", {
-                      amount: formatMoney(status.projected, baseCurrency, locale),
+        {flagged.slice(0, MAX_ROWS).map((status) => {
+          const f = figures(status);
+          return (
+            <div key={status.budget.id}>
+              <div className="flex items-center justify-between gap-3">
+                <span className="flex min-w-0 items-center gap-2">
+                  <IconChip icon={status.category.icon} color={status.category.color} small />
+                  <span className="truncate text-sm font-medium">{status.category.name}</span>
+                </span>
+                <span className="shrink-0 text-xs text-muted-foreground">
+                  <Amount minor={f.spent} currency={f.currency} tone="neutral" /> /{" "}
+                  <Amount minor={f.limit} currency={f.currency} tone="muted" />
+                </span>
+              </div>
+              <div className="mt-1.5">
+                <Progress ratio={status.ratio} />
+              </div>
+              <div
+                className={cn(
+                  "sensitive mt-1 text-xs",
+                  status.remaining < 0 ? "text-destructive" : "text-muted-foreground",
+                )}
+              >
+                {status.remaining < 0
+                  ? t("budgets.over", {
+                      amount: formatMoney(-f.remaining, f.currency, locale),
                     })
-                  : t("budgets.remaining", {
-                      amount: formatMoney(status.remaining, baseCurrency, locale),
-                    })}
+                  : f.projected !== null &&
+                      status.projected !== null &&
+                      status.projected > status.effectiveLimit
+                    ? t("budgets.projected", {
+                        amount: formatMoney(f.projected, f.currency, locale),
+                      })
+                    : t("budgets.remaining", {
+                        amount: formatMoney(f.remaining, f.currency, locale),
+                      })}
+              </div>
             </div>
-          </div>
-        ))}
+          );
+        })}
 
         {flagged.length === 0 ? (
           <div className="text-sm text-muted-foreground">
