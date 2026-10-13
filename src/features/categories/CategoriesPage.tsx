@@ -3,7 +3,7 @@ import { useState } from "react";
 import { useApp } from "~/app/AppContext";
 import { db } from "~/db/dexie";
 import { newId, put, remove } from "~/db/mutations";
-import { useCategories, useCategoryTransactionCount, useTransactions } from "~/db/queries";
+import { useCategories, useTransactions } from "~/db/queries";
 import { Chip, Field, FieldGroup, IconChip, Segmented, Sheet } from "~/ui";
 import { Button } from "~/ui/Button";
 import { cn } from "~/lib/cn";
@@ -69,9 +69,14 @@ export function CategoriesPage() {
   );
 }
 
+/*
+ * Name and icon, and "Archived" when it is. The row used to say "N transactions" under every
+ * category — "0 transactions" twenty times down a fresh list — and each row read the whole ledger to
+ * count it. The figure answers nothing this list is opened for; Reports and History say how much
+ * went where.
+ */
 function CategoryRow({ category, onClick }: { category: Category; onClick: () => void }) {
   const { t } = useApp();
-  const count = useCategoryTransactionCount(category.id);
 
   return (
     <button
@@ -84,10 +89,7 @@ function CategoryRow({ category, onClick }: { category: Category; onClick: () =>
         <span className={cn(ROW_TITLE, category.archived && "text-muted-foreground")}>
           {category.name}
         </span>
-        <span className={ROW_SUB}>
-          {t("history.count", { count })}
-          {category.archived === 1 ? ` · ${t("accounts.archived")}` : ""}
-        </span>
+        {category.archived === 1 && <span className={ROW_SUB}>{t("accounts.archived")}</span>}
       </span>
     </button>
   );

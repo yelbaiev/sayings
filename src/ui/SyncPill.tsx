@@ -5,12 +5,17 @@ import { formatRelativeTime } from "~/lib/format";
 import { cn } from "~/lib/cn";
 
 /**
- * Always-visible sync state.
+ * Sync state, shown only when it needs attention.
  *
- * For an offline-first app holding the household's finances, the user must never have to
- * wonder whether their data made it. This is deliberately a small, non-blocking pill rather
- * than a modal or a spinner — it informs without interrupting.
+ * For an offline-first app holding the household's finances, the user must never have to wonder
+ * whether their data made it. It used to say "just now" on every screen, all the time — and a
+ * message that is always there stops being read. Now it appears when something is not done:
+ * offline, entries still waiting to go, or no sync for a while. When all is well the header is
+ * quiet, and a screen reader still hears the state through a hidden status.
  */
+
+/** Past this, a quiet "synced" becomes worth saying out loud, with how long ago. */
+const STALE_MS = 60 * 60_000;
 export function SyncPill() {
   const { t, locale } = useApp();
   const [snapshot, setSnapshot] = useState<SyncSnapshot | null>(null);
@@ -33,22 +38,30 @@ export function SyncPill() {
   /** The dot is the message: green synced, pulsing while syncing, amber pending, red offline. */
   let dot = "bg-income";
   let label: string;
+  // Whether the pill is worth showing. Everything else is the normal, healthy state.
+  let visible = true;
 
   if (status === "offline") {
     dot = "bg-expense";
     label = t("sync.offline");
-  } else if (status === "syncing") {
-    dot = "animate-pulse bg-transfer";
-    label = t("sync.syncing");
   } else if (pending > 0) {
+    // Syncing *something the person entered* is worth seeing; a background poll is not.
+    dot = status === "syncing" ? "animate-pulse bg-transfer" : "bg-warning";
+    label = status === "syncing" ? t("sync.syncing") : t("sync.pending", { count: pending });
+  } else if (lastSyncedAt && now - lastSyncedAt > STALE_MS) {
     dot = "bg-warning";
-    label = t("sync.pending", { count: pending });
-  } else if (lastSyncedAt && now - lastSyncedAt < 60_000) {
-    label = t("sync.justNow");
-  } else if (lastSyncedAt) {
     label = t("sync.lastSynced", { time: formatRelativeTime(lastSyncedAt, locale, now) });
   } else {
-    label = t("sync.syncing");
+    visible = false;
+    label = lastSyncedAt ? t("sync.justNow") : t("sync.syncing");
+  }
+
+  if (!visible) {
+    return (
+      <span className="sr-only" role="status">
+        {`${t("sync.synced")}: ${label}`}
+      </span>
+    );
   }
 
   return (

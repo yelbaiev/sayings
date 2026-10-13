@@ -284,7 +284,7 @@ export function SettingsPage() {
                 onChange={(next) => void saveEnabled(next)}
               />
               <Button size="sm" onClick={() => setEditingCurrencies(false)}>
-                {t("settings.currenciesDone")}
+                {t("common.done")}
               </Button>
             </>
           ) : (

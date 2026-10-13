@@ -6,14 +6,14 @@ import { Button } from "~/ui/Button";
 import { cn } from "~/lib/cn";
 
 /**
- * A five-panel introduction, shown once per device.
+ * A two-panel introduction, shown once per device.
  *
  * Deliberately small. The app is a numeric keypad, a list and a few reports — a guided tour would
- * take longer than working it out. What a newcomer actually needs is the facts that are not
- * discoverable by poking at it: that the data is theirs, that entry is meant to take seconds, that
- * any set of currencies rolls up to one configurable base, that a partner joins by a one-time link,
- * and that a backup happens without being asked. The last of those is the reason the project exists
- * and is invisible from the interface.
+ * take longer than working it out. What a newcomer needs is what poking at it does not reveal: the
+ * data is theirs and backed up every night (the reason the project exists, and invisible from the
+ * interface), and entry takes seconds, with a partner joining from Settings. It was five panels;
+ * currencies are already chosen on the setup screen before this appears, and three more taps of
+ * "Next" were three more chances to skip the one that mattered.
  *
  * Ends by opening the real entry sheet rather than a mock of it. The first transaction is the thing
  * that makes the rest make sense, and a tour that ends in a dead end teaches nothing.
@@ -22,7 +22,7 @@ import { cn } from "~/lib/cn";
  * having seen it, and both people share one household.
  */
 
-const PANEL_COUNT = 5;
+const PANEL_COUNT = 2;
 
 export function IntroSheet({
   onClose,

@@ -18,9 +18,9 @@ export interface Lookups {
 /**
  * One transaction, as it appears in every list.
  *
- * The author's initial is shown on every row. It looks like a small thing, but with two
- * people on one ledger it is what answers "did you already log the groceries?" without
- * asking — and stops the pair of you double-entering the weekly shop.
+ * The author's initial is shown on rows the *other* person entered. With two people on one ledger
+ * it answers "did you already log the groceries?" without asking. On your own rows it said "you"
+ * on every line of the list — the one thing nobody needed telling — so it is left off them.
  */
 export function TransactionRow({
   transaction: tx,
@@ -53,7 +53,7 @@ export function TransactionRow({
    */
   showDate?: boolean | undefined;
 }) {
-  const { t, locale } = useApp();
+  const { t, locale, me } = useApp();
 
   const account = lookups.accounts.get(tx.account_id);
   const toAccount = tx.to_account_id ? lookups.accounts.get(tx.to_account_id) : undefined;
@@ -61,7 +61,7 @@ export function TransactionRow({
   // Attribution is the creator, permanently: fixing a typo in the other person's entry must not
   // repaint it as yours. updated_by is the fallback only for rows older than the column.
   const authorId = tx.created_by ?? tx.updated_by;
-  const member = authorId ? lookups.members.get(authorId) : undefined;
+  const member = authorId && authorId !== me.id ? lookups.members.get(authorId) : undefined;
 
   const title = tx.kind === "transfer" ? t("kind.transfer") : (category?.name ?? t("common.none"));
   // Chrome marker for transfers, emoji for categories — see src/ui/icons.tsx.

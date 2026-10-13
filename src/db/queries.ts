@@ -265,13 +265,3 @@ export function useAccountHasTransactions(accountId: string): boolean {
     }, [accountId]) ?? false
   );
 }
-
-export function useCategoryTransactionCount(categoryId: string): number {
-  return (
-    useLiveQuery(async () => {
-      const rows = alive(await db.transactions.toArray());
-      return rows.filter((tx) => tx.category_id === categoryId).length;
-    }, [categoryId]) ?? 0
-  );
-}
-

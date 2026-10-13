@@ -22,7 +22,17 @@ import {
 import { EntrySheet } from "~/features/entry/EntrySheet";
 import { formatDayHeading, todayIso } from "~/lib/format";
 import { pricingFor } from "~/lib/fx";
-import { Amount, Chip, EmptyState, IconChip, SwipeRow, Toast, type ToastSpec } from "~/ui";
+import {
+  Amount,
+  Chip,
+  EmptyState,
+  Field,
+  IconChip,
+  Sheet,
+  SwipeRow,
+  Toast,
+  type ToastSpec,
+} from "~/ui";
 import { TransactionRow } from "./TransactionRow";
 
 /**
@@ -74,7 +84,11 @@ export function HistoryPage() {
    */
   const [categoryFilter, setCategoryFilter] = useState<string | undefined>();
   const kindFilter =
-    categoryFilter === ALL_EXPENSES ? "expense" : categoryFilter === ALL_INCOME ? "income" : undefined;
+    categoryFilter === ALL_EXPENSES
+      ? "expense"
+      : categoryFilter === ALL_INCOME
+        ? "income"
+        : undefined;
   const categoryId = kindFilter ? undefined : categoryFilter;
   const [memberId, setMemberId] = useState<string | undefined>();
   const [editing, setEditing] = useState<Transaction | undefined>();
@@ -96,6 +110,9 @@ export function HistoryPage() {
   });
 
   const hasFilters = Boolean(search || accountId || categoryFilter || memberId);
+  /** How many of the sheet's filters are set — the search box speaks for itself. */
+  const activeFilters = [accountId, categoryFilter, memberId].filter(Boolean).length;
+  const [filtersOpen, setFiltersOpen] = useState(false);
   /* The chosen card: what it holds now, and every row that touches it. Null unless one is chosen. */
   const selected = useAccountLedger(accountId);
 
@@ -249,80 +266,131 @@ export function HistoryPage() {
       <h1 className={PAGE_TITLE}>{t("history.title")}</h1>
 
       <div className={chromeHidden ? "collapsible collapsible--hidden" : "collapsible"}>
-      <input
-        type="search"
-        value={search}
-        onChange={(event) => setSearch(event.target.value)}
-        placeholder={t("history.search")}
-        className="mb-3"
-      />
+        {/*
+          Search and one Filter button on a single line; the choices themselves in a sheet. Three
+          full-width dropdowns took half a phone screen above the list for something set now and
+          then — and an unset dropdown says nothing, where a chip says exactly what is applied.
+        */}
+        <div className="mb-2 flex gap-2">
+          <input
+            type="search"
+            value={search}
+            onChange={(event) => setSearch(event.target.value)}
+            placeholder={t("history.search")}
+            className="min-w-0 flex-1"
+          />
+          <Button onClick={() => setFiltersOpen(true)}>
+            {activeFilters > 0
+              ? t("history.filtersCount", { count: activeFilters })
+              : t("history.filters")}
+          </Button>
+        </div>
 
-      <div className="mb-2 flex flex-wrap gap-2 [&>select]:min-w-0 [&>select]:flex-auto">
-        <select
-          value={accountId ?? ""}
-          onChange={(event) => setAccountId(event.target.value || undefined)}
-          aria-label={t("history.filterAccount")}
-          className="w-auto min-w-[120px]"
-        >
-          <option value="">{t("history.filterAccount")}</option>
-          {accounts.map((a) => (
-            <option key={a.id} value={a.id}>
-              {a.name}
-            </option>
-          ))}
-        </select>
-
-        <select
-          value={categoryFilter ?? ""}
-          onChange={(event) => setCategoryFilter(event.target.value || undefined)}
-          aria-label={t("history.filterCategory")}
-          className="w-auto min-w-[120px]"
-        >
-          <option value="">{t("history.filterCategory")}</option>
-          <option value={ALL_EXPENSES}>{t("history.allExpenses")}</option>
-          <option value={ALL_INCOME}>{t("history.allIncome")}</option>
-          {categories.map((c) => (
-            <option key={c.id} value={c.id}>
-              {c.name}
-            </option>
-          ))}
-        </select>
-
-        <select
-          value={memberId ?? ""}
-          onChange={(event) => setMemberId(event.target.value || undefined)}
-          aria-label={t("history.filterMember")}
-          className="w-auto min-w-[100px]"
-        >
-          <option value="">{t("history.filterMember")}</option>
-          {members.map((m) => (
-            <option key={m.id} value={m.id}>
-              {m.display_name}
-            </option>
-          ))}
-        </select>
-
-        {hiddenCount > 0 && (
-          <Chip active={showImported} onClick={() => setShowImported((v) => !v)}>
-            {showImported ? t("history.importedHidden") : t("history.showImported")}
-          </Chip>
+        {(activeFilters > 0 || hiddenCount > 0) && (
+          <div className="mb-2 flex flex-wrap gap-2">
+            {accountId && (
+              <Chip data-filter="account" active onClick={() => setAccountId(undefined)}>
+                {accounts.find((a) => a.id === accountId)?.name ?? t("history.filterAccount")} ×
+              </Chip>
+            )}
+            {categoryFilter && (
+              <Chip data-filter="category" active onClick={() => setCategoryFilter(undefined)}>
+                {categoryFilter === ALL_EXPENSES
+                  ? t("history.allExpenses")
+                  : categoryFilter === ALL_INCOME
+                    ? t("history.allIncome")
+                    : (categories.find((c) => c.id === categoryFilter)?.name ??
+                      t("history.filterCategory"))}{" "}
+                ×
+              </Chip>
+            )}
+            {memberId && (
+              <Chip data-filter="member" active onClick={() => setMemberId(undefined)}>
+                {members.find((m) => m.id === memberId)?.display_name ?? t("history.filterMember")}{" "}
+                ×
+              </Chip>
+            )}
+            {hiddenCount > 0 && (
+              <Chip active={showImported} onClick={() => setShowImported((v) => !v)}>
+                {showImported ? t("history.importedHidden") : t("history.showImported")}
+              </Chip>
+            )}
+            {activeFilters > 1 && (
+              <Chip
+                onClick={() => {
+                  setAccountId(undefined);
+                  setCategoryFilter(undefined);
+                  setMemberId(undefined);
+                }}
+              >
+                {t("history.clearFilters")}
+              </Chip>
+            )}
+          </div>
         )}
+      </div>
 
-        {hasFilters && (
-          <Chip
-            onClick={() => {
-              setSearch("");
-              setAccountId(undefined);
-              setCategoryFilter(undefined);
-              setMemberId(undefined);
-            }}
+      {filtersOpen && (
+        <Sheet title={t("history.filters")} onClose={() => setFiltersOpen(false)}>
+          <div className="flex flex-col gap-4">
+            <Field label={t("history.filterAccount")}>
+              <select
+                value={accountId ?? ""}
+                onChange={(event) => setAccountId(event.target.value || undefined)}
+              >
+                <option value="">{t("history.any")}</option>
+                {accounts.map((a) => (
+                  <option key={a.id} value={a.id}>
+                    {a.name}
+                  </option>
+                ))}
+              </select>
+            </Field>
+
+            <Field label={t("history.filterCategory")}>
+              <select
+                value={categoryFilter ?? ""}
+                onChange={(event) => setCategoryFilter(event.target.value || undefined)}
+              >
+                <option value="">{t("history.any")}</option>
+                <option value={ALL_EXPENSES}>{t("history.allExpenses")}</option>
+                <option value={ALL_INCOME}>{t("history.allIncome")}</option>
+                {categories.map((c) => (
+                  <option key={c.id} value={c.id}>
+                    {c.name}
+                  </option>
+                ))}
+              </select>
+            </Field>
+
+            {/* A household of one has nobody to filter by. */}
+            {members.length > 1 && (
+              <Field label={t("history.filterMember")}>
+                <select
+                  value={memberId ?? ""}
+                  onChange={(event) => setMemberId(event.target.value || undefined)}
+                >
+                  <option value="">{t("history.any")}</option>
+                  {members.map((m) => (
+                    <option key={m.id} value={m.id}>
+                      {m.display_name}
+                    </option>
+                  ))}
+                </select>
+              </Field>
+            )}
+          </div>
+
+          <Button
+            variant="primary"
+            block
+            layoutClassName="mt-4"
+            onClick={() => setFiltersOpen(false)}
           >
-            {t("history.clearFilters")}
-          </Chip>
-        )}
-      </div>
-
-      </div>
+            {t("history.showResults", { count: visible.length })}
+          </Button>
+        </Sheet>
+      )}
 
       {/*
         The chosen card, with what it holds. Filtering history to one account is how the app is
@@ -363,11 +431,13 @@ export function HistoryPage() {
             className="w-auto"
           >
             <option value="">{t("history.recategorise")}</option>
-            {categories.filter((c) => selectedKinds.has(c.kind)).map((c) => (
-              <option key={c.id} value={c.id}>
-                {c.name}
-              </option>
-            ))}
+            {categories
+              .filter((c) => selectedKinds.has(c.kind))
+              .map((c) => (
+                <option key={c.id} value={c.id}>
+                  {c.name}
+                </option>
+              ))}
           </select>
           <Button variant="ghost" size="sm" onClick={() => setSelection(new Set())}>
             {t("common.cancel")}
@@ -401,12 +471,7 @@ export function HistoryPage() {
                   {row.kind === "heading" ? (
                     <div className="flex items-baseline justify-between gap-3 px-3 pb-2 pt-4 text-xs font-semibold text-muted-foreground">
                       <span>{formatDayHeading(row.date, locale)}</span>
-                      <Amount
-                        minor={row.total}
-                        currency={baseCurrency}
-                        tone="muted"
-                        signed
-                      />
+                      <Amount minor={row.total} currency={baseCurrency} tone="muted" signed />
                     </div>
                   ) : (
                     <SwipeRow

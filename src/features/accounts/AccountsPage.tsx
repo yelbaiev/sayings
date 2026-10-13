@@ -21,6 +21,11 @@ export function AccountsPage() {
   const balances = useBalances();
   const accounts = useAccounts(true);
   const [editing, setEditing] = useState<Account | "new" | null>(null);
+  /**
+   * The ↑↓ arrows only while reordering. On every row, always, they were two extra controls per
+   * account for something done once — and they crowded the balance, which is what the list is for.
+   */
+  const [reordering, setReordering] = useState(false);
 
   const active = balances.filter((b) => b.account.archived === 0);
   const archived = balances.filter((b) => b.account.archived === 1);
@@ -62,6 +67,14 @@ export function AccountsPage() {
         <EmptyState icon="💳" message={t("accounts.empty")} />
       ) : (
         <>
+          {active.length > 1 && (
+            <div className="mb-2 flex justify-end">
+              <Button size="sm" variant="ghost" onClick={() => setReordering((on) => !on)}>
+                {reordering ? t("common.done") : t("accounts.reorder")}
+              </Button>
+            </div>
+          )}
+
           <div className={LIST}>
             {active.map(({ account, native }, index) => (
               <div key={account.id} className={ROW}>
@@ -82,29 +95,30 @@ export function AccountsPage() {
                       minor={native}
                       currency={account.currency as Currency}
                       tone={native < 0 ? "expense" : "neutral"}
-                      cents
                     />
                   </span>
                 </button>
 
-                <span className="flex shrink-0 flex-col">
-                  <IconButton
-                    shape="wide"
-                    label={t("accounts.moveUp")}
-                    disabled={index === 0}
-                    onClick={() => void move(account.id, -1)}
-                  >
-                    ↑
-                  </IconButton>
-                  <IconButton
-                    shape="wide"
-                    label={t("accounts.moveDown")}
-                    disabled={index === active.length - 1}
-                    onClick={() => void move(account.id, 1)}
-                  >
-                    ↓
-                  </IconButton>
-                </span>
+                {reordering && (
+                  <span className="flex shrink-0 flex-col">
+                    <IconButton
+                      shape="wide"
+                      label={t("accounts.moveUp")}
+                      disabled={index === 0}
+                      onClick={() => void move(account.id, -1)}
+                    >
+                      ↑
+                    </IconButton>
+                    <IconButton
+                      shape="wide"
+                      label={t("accounts.moveDown")}
+                      disabled={index === active.length - 1}
+                      onClick={() => void move(account.id, 1)}
+                    >
+                      ↓
+                    </IconButton>
+                  </span>
+                )}
               </div>
             ))}
           </div>
@@ -156,7 +170,9 @@ function AccountSheet({
   const [name, setName] = useState(account?.name ?? "");
   const [type, setType] = useState<Account["type"]>(account?.type ?? "debit_card");
   // A new account starts in the household's own currency, which is what most accounts will be.
-  const [currency, setCurrency] = useState<Currency>((account?.currency as Currency) ?? baseCurrency);
+  const [currency, setCurrency] = useState<Currency>(
+    (account?.currency as Currency) ?? baseCurrency,
+  );
   // Held in minor units, and the field scales it by the account's own currency — /100 would show
   // a yen balance at a hundredth of itself.
   const [openingBalance, setOpeningBalance] = useState<number | null>(
@@ -164,9 +180,7 @@ function AccountSheet({
   );
   const [icon, setIcon] = useState(account?.icon ?? "💳");
   const [color, setColor] = useState(account?.color ?? "#3E63DD");
-  const [excludeFromTotals, setExcludeFromTotals] = useState(
-    account?.exclude_from_totals === 1,
-  );
+  const [excludeFromTotals, setExcludeFromTotals] = useState(account?.exclude_from_totals === 1);
   const [archived, setArchived] = useState(account?.archived === 1);
   const [error, setError] = useState<string | null>(null);
 
@@ -206,10 +220,7 @@ function AccountSheet({
       </Field>
 
       <Field label={t("accounts.type")}>
-        <select
-          value={type}
-          onChange={(event) => setType(event.target.value as Account["type"])}
-        >
+        <select value={type} onChange={(event) => setType(event.target.value as Account["type"])}>
           {ACCOUNT_TYPES.map((option) => (
             <option key={option} value={option}>
               {t(`accounts.type.${option}` as AccountTypeKey)}
@@ -218,18 +229,8 @@ function AccountSheet({
         </select>
       </Field>
 
-      <Field
-        label={t("accounts.currency")}
-        hint={
-          account
-            ? t("accounts.currencyHint")
-            : undefined
-        }
-      >
-        <select
-          value={currency}
-          onChange={(event) => setCurrency(event.target.value as Currency)}
-        >
+      <Field label={t("accounts.currency")} hint={account ? t("accounts.currencyHint") : undefined}>
+        <select value={currency} onChange={(event) => setCurrency(event.target.value as Currency)}>
           {enabledCurrencies.map((option) => (
             <option key={option} value={option}>
               {option}

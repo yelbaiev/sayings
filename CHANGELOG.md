@@ -1,5 +1,14 @@
 # Changelog
 
+## Version 1.6.0
+
+- Changed: History has a search box and one Filter button on a single line instead of three dropdowns; whatever is applied shows as a chip you tap to remove
+- Changed: in lists, the small initial now appears only on entries the other person added — your own rows no longer carry it
+- Changed: the sync indicator in the header shows up only when it matters — offline, entries waiting to send, or no sync for over an hour
+- Changed: Accounts shows balances in whole units, and the ↑↓ arrows appear only after tapping Change order
+- Changed: Categories no longer shows "N transactions" under every category
+- Changed: the first-run introduction is two screens instead of five
+
 ## Version 1.5.9
 
 - Changed: Settings is shorter — Accounts, Categories, Budgets, Recurring and Import are at the top; your currencies show as one line ("UAH, EUR, USD") with a Change button instead of a grid of 45; Re-sync, Reload, Show the intro and Sign out are folded under "If something's wrong"

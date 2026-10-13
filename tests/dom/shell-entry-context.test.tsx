@@ -131,15 +131,16 @@ describe("the Shell FAB and the account being viewed", () => {
       </RouterProvider>,
     );
 
-    const filter = screen.getByLabelText<HTMLSelectElement>("Счёт");
-    expect(filter.value).toBe("acc_privat");
+    // The applied filter shows as a chip naming the card.
+    const chip = () => document.querySelector("[data-filter=account]");
+    expect(chip()?.textContent).toContain("Приват");
 
     fireEvent.click(screen.getByRole("button", { name: "История" }));
     // The URL lost the query, so the filter must visibly clear rather than linger in state.
-    expect(filter.value).toBe("");
+    expect(chip()).toBeNull();
 
     openEntryFromFab();
-    // Scoped to the sheet: the page's own filter select also lists the account names.
+    // Scoped to the sheet: the page also names the card elsewhere.
     const sheet = within(await screen.findByRole("dialog"));
     expect(await sheet.findByText("Моно")).toBeTruthy();
   });
