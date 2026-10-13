@@ -13,7 +13,7 @@ reports, how much you actually spent against it.
    - If you've chosen a second currency in **Settings → Second currency**, buttons such as
      **UAH** and **EUR** appear above the limit. Pick **EUR** to set the limit in euros.
 2. Open **Reports → This month**. Each category with a budget shows "of ₴50 000" under what you
-   spent. Use ‹ › or the bars under the chart to look at another month.
+   spent. Tap a bar under the chart to look at another month.
 3. In **Reports → By category** (the table), the budget is shown under each category's name.
 
 ## What success looks like

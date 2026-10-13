@@ -197,7 +197,8 @@ What a restore does on purpose:
   had seen. Phones re-download the restored state on their next sync instead of keeping what they
   had cached.
 - **Cannot know about entries made after the snapshot.** A phone may still hold some locally. Open
-  Settings → reset local mirror on each phone after a restore so they match the server.
+  Settings → If something’s wrong → Re-sync from scratch on each phone after a restore so they
+  match the server.
 
 Snapshots taken before 1.4.3 (`schema: 1`) still restore the ledger and print a warning: they have
 no passkeys, main currency or currency list, so sign in through Cloudflare Access (or claim the

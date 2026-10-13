@@ -1,5 +1,13 @@
 # Changelog
 
+## Version 1.5.9
+
+- Changed: Settings is shorter — Accounts, Categories, Budgets, Recurring and Import are at the top; your currencies show as one line ("UAH, EUR, USD") with a Change button instead of a grid of 45; Re-sync, Reload, Show the intro and Sign out are folded under "If something's wrong"
+- Changed: Reports has three tabs that all fit on a phone — This month, By category, Accounts. Accounts combines Net worth and Cashflow
+- Changed: spending by person is now a filter in This month (Everyone / each person) instead of its own tab; it appears when the household has more than one person
+- Changed: This month switches months with the bars under the chart (the ‹ › arrows are gone) and sums the month up in one line — the other side's total and the profit
+- Changed: on a phone, the By category table shows only Expenses/Income and Months/Years, side by side; the 12/24/All range and Copy table stay on larger screens
+
 ## Version 1.5.8
 
 - Changed: the Budgets page is now just the list of your limits — category and amount. Tap one to change or delete it

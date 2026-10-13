@@ -17,13 +17,11 @@ import {
   cashflowOverTime,
   categoryMatrix,
   categoryTrends,
-  countsForMemberReport,
   matrixToTsv,
   monthOverview,
   netWorthOverTime,
   periodOf,
   periodRange,
-  spendByMember,
   type Period,
 } from "~/lib/report-engine";
 import {
@@ -50,10 +48,15 @@ import {
   type ToastSpec,
 } from "~/ui";
 
-type ReportTab = "matrix" | "month" | "netWorth" | "cashflow" | "byMember";
+/*
+ * Three tabs, all on a phone's screen at once. There were five, and the last two sat past the edge:
+ * net worth and cashflow are both "what are the accounts doing" and now share one tab, and spending
+ * by person became a filter on the month — with two people it was a list of two rows.
+ */
+type ReportTab = "month" | "matrix" | "accounts";
 
 const TAB_KEY = "sayings.reports.tab";
-const TABS: ReportTab[] = ["matrix", "month", "netWorth", "cashflow", "byMember"];
+const TABS: ReportTab[] = ["month", "matrix", "accounts"];
 
 /**
  * The tab to open on: the last one chosen on this device, else Month on a phone and the table on
@@ -103,6 +106,8 @@ export function ReportsPage() {
   const [month, setMonth] = useState(() => monthOf(todayIso()));
   /** Which side the month report is showing. Spending is what gets read most, so it leads. */
   const [monthKind, setMonthKind] = useState<"expense" | "income">("expense");
+  /** Whose entries the month shows: everyone, or one member. Offered only with two or more. */
+  const [who, setWho] = useState<string>("all");
   /**
    * The matrix used to render every month from the first transaction to today — 33 columns once
    * the Saldo history landed, which is a lot of sideways scrolling to reach the current month.
@@ -145,9 +150,15 @@ export function ReportsPage() {
      spreadsheet reads left to right in time. */
   const matrixPeriods = useMemo(() => [...matrix.periods].reverse(), [matrix.periods]);
 
+  // The month view reads only the chosen person's entries; everything below it uses this list.
+  const monthTransactions = useMemo(
+    () => (who === "all" ? transactions : transactions.filter((tx) => authorOf(tx) === who)),
+    [transactions, who],
+  );
+
   const overview = useMemo(
-    () => monthOverview(transactions, categories, month),
-    [transactions, categories, month],
+    () => monthOverview(monthTransactions, categories, month),
+    [monthTransactions, categories, month],
   );
   const monthRows = overview.byCategory[monthKind];
 
@@ -155,14 +166,22 @@ export function ReportsPage() {
      the ledger for every category at once — see categoryTrends. */
   const trends = useMemo(() => {
     const periods = Array.from({ length: 6 }, (_, index) => addMonths(month, index - 5));
-    return categoryTrends(transactions, periods, "month");
-  }, [transactions, month]);
+    return categoryTrends(monthTransactions, periods, "month");
+  }, [monthTransactions, month]);
 
-  /* Nine months ending at the one being read, each sized by that side's total. */
+  /*
+   * Nine months around the one being read, each sized by that side's total — and the only way
+   * between months now that the ‹ › stepper is gone. The window ends up to four months after the
+   * selected one (never past this month), so the months after it stay tappable: a window that ended
+   * at the selection could go back but never forward again.
+   */
   const monthBars = useMemo(() => {
-    const months = Array.from({ length: 9 }, (_, index) => addMonths(month, index - 8));
+    const thisMonth = monthOf(todayIso());
+    const ahead = addMonths(month, 4);
+    const end = ahead < thisMonth ? ahead : thisMonth;
+    const months = Array.from({ length: 9 }, (_, index) => addMonths(end, index - 8));
     const totals = new Map(months.map((bucket) => [bucket, 0]));
-    for (const tx of transactions) {
+    for (const tx of monthTransactions) {
       const bucket = monthOf(tx.occurred_on);
       if (!totals.has(bucket)) continue;
       const signed = signedMinor(tx.kind, tx.base_amount_minor);
@@ -172,7 +191,7 @@ export function ReportsPage() {
       }
     }
     return months.map((bucket) => ({ period: bucket, value: totals.get(bucket) ?? 0 }));
-  }, [transactions, month, monthKind]);
+  }, [monthTransactions, month, monthKind]);
 
   if (transactions.length === 0) {
     return (
@@ -234,11 +253,9 @@ export function ReportsPage() {
       <div className="mb-4 flex gap-2 overflow-x-auto pb-1 [scrollbar-width:none]">
         {(
           [
-            ["matrix", t("reports.matrix")],
             ["month", t("reports.month")],
-            ["netWorth", t("reports.netWorth")],
-            ["cashflow", t("reports.cashflow")],
-            ["byMember", t("reports.byMember")],
+            ["matrix", t("reports.matrix")],
+            ["accounts", t("reports.accounts")],
           ] as [ReportTab, string][]
         ).map(([value, label]) => (
           <Chip key={value} active={tab === value} onClick={() => setTab(value)}>
@@ -249,7 +266,13 @@ export function ReportsPage() {
 
       {tab === "matrix" && (
         <>
-          <div className="mb-3 flex flex-wrap items-center gap-2">
+          {/*
+            Two controls side by side, half a row each. Stacked, every Segmented took the full width,
+            and with the range and the copy button the controls filled a phone's first screen before
+            a single figure. The range and copying are for a computer — a year is what a phone reads,
+            and a table is pasted into a spreadsheet from a desk — so they show from `sm` up.
+          */}
+          <div className="mb-3 grid grid-cols-2 gap-2">
             <Segmented
               value={kind}
               onChange={setKind}
@@ -266,16 +289,20 @@ export function ReportsPage() {
                 { value: "year", label: t("reports.byYear") },
               ]}
             />
+          </div>
+          <div className="mb-3 hidden items-center gap-2 sm:flex">
             {period === "month" && (
-              <Segmented
-                value={monthRange}
-                onChange={setMonthRange}
-                options={[
-                  { value: "12", label: t("reports.range12") },
-                  { value: "24", label: t("reports.range24") },
-                  { value: "all", label: t("reports.rangeAll") },
-                ]}
-              />
+              <div className="w-72">
+                <Segmented
+                  value={monthRange}
+                  onChange={setMonthRange}
+                  options={[
+                    { value: "12", label: t("reports.range12") },
+                    { value: "24", label: t("reports.range24") },
+                    { value: "all", label: t("reports.rangeAll") },
+                  ]}
+                />
+              </div>
             )}
             <Button
               size="sm"
@@ -411,19 +438,20 @@ export function ReportsPage() {
             />
           </div>
 
-          <div className="mb-3 flex flex-wrap items-center gap-2">
-            <Button size="sm" onClick={() => setMonth(addMonths(month, -1))}>
-              ‹
-            </Button>
-            <strong>{formatMonth(month, locale)}</strong>
-            <Button
-              size="sm"
-              disabled={month >= monthOf(todayIso())}
-              onClick={() => setMonth(addMonths(month, 1))}
-            >
-              ›
-            </Button>
-          </div>
+          {/* Whose spending: what the separate "By person" tab answered, as a filter on the month
+              it was always about. Hidden for a household of one. */}
+          {members.length > 1 && (
+            <div className="mb-3 flex gap-2 overflow-x-auto pb-1 [scrollbar-width:none]">
+              <Chip active={who === "all"} onClick={() => setWho("all")}>
+                {t("reports.everyone")}
+              </Chip>
+              {members.map((member) => (
+                <Chip key={member.id} active={who === member.id} onClick={() => setWho(member.id)}>
+                  {member.display_name}
+                </Chip>
+              ))}
+            </div>
+          )}
 
           <div className={cn(CARD, "mb-3")}>
             <DonutChart
@@ -439,114 +467,116 @@ export function ReportsPage() {
               caption={formatMonth(month, locale)}
             />
 
-            {/* The strip doubles as the way between months: nine of them ending at the one being
-                read, which is as many as fit under a thumb. The arrows above still step one at a
-                time, and the window follows them. */}
+            {/* The way between months: nine of them, as many as fit under a thumb. The month being
+                read is named in the middle of the ring above. */}
             <div className="mt-4">
               <PeriodStrip bars={monthBars} selected={month} onSelect={setMonth} tone={monthKind} />
             </div>
           </div>
 
-          <div className={cn(CARD, "mb-3")}>
-            <div className="flex items-center justify-between gap-3">
-              <span className="text-xs text-muted-foreground">{t("reports.totalIncome")}</span>
-              <Amount minor={overview.income} currency={baseCurrency} tone="income" />
-            </div>
-            <div className="mt-1.5 flex items-center justify-between gap-3">
-              <span className="text-xs text-muted-foreground">{t("reports.totalExpenses")}</span>
-              <Amount minor={overview.expenses} currency={baseCurrency} tone="expense" />
-            </div>
-            <div className="mt-1.5 flex items-center justify-between gap-3">
-              <span className="text-xs text-muted-foreground">{t("reports.profit")}</span>
-              {/* Only the net carries the second currency here. Three of them in a stack of three
-                  rows is a column of conversions nobody reads; the line worth repeating is the one
-                  that says whether the month came out ahead. */}
-              <span className="text-right">
-                <Amount
-                  minor={overview.net}
-                  currency={baseCurrency}
-                  tone={overview.net < 0 ? "expense" : "income"}
-                  signed
-                />
-                <SecondaryAmount minor={overview.net} />
+          {/* One line: the other side of the month and what it came to. The ring already says this
+              side's total, and a three-row card repeated it. */}
+          <div className={cn(CARD, "mb-3 flex items-start justify-between gap-3 py-3")}>
+            <span>
+              <span className="block text-xs text-muted-foreground">
+                {monthKind === "expense" ? t("reports.totalIncome") : t("reports.totalExpenses")}
               </span>
-            </div>
+              <Amount
+                minor={monthKind === "expense" ? overview.income : overview.expenses}
+                currency={baseCurrency}
+                tone={monthKind === "expense" ? "income" : "expense"}
+              />
+            </span>
+            <span className="text-right">
+              <span className="block text-xs text-muted-foreground">{t("reports.profit")}</span>
+              <Amount
+                minor={overview.net}
+                currency={baseCurrency}
+                tone={overview.net < 0 ? "expense" : "income"}
+                signed
+              />
+              <SecondaryAmount minor={overview.net} />
+            </span>
           </div>
 
-          <div className={LIST}>
-            {monthRows.map((row) => (
-              <button
-                key={row.category.id}
-                type="button"
-                className={cn(ROW, "hover:bg-accent active:bg-accent")}
-                onClick={() =>
-                  drill(
-                    t("reports.drillDown", {
-                      category: row.category.name,
-                      period: formatMonth(month, locale),
-                    }),
-                    (tx) => tx.category_id === row.category.id && monthOf(tx.occurred_on) === month,
-                  )
-                }
-              >
-                <IconChip icon={row.category.icon} color={row.category.color} />
-                <span className="min-w-0 flex-1">
-                  <span className={ROW_TITLE}>{row.category.name}</span>
-                  {/* The word "change" went with the sparkline's arrival: a signed percentage
+          {/* No list at all for an empty month: an empty bordered box reads as a rendering glitch. */}
+          {monthRows.length > 0 && (
+            <div className={LIST}>
+              {monthRows.map((row) => (
+                <button
+                  key={row.category.id}
+                  type="button"
+                  className={cn(ROW, "hover:bg-accent active:bg-accent")}
+                  onClick={() =>
+                    drill(
+                      t("reports.drillDown", {
+                        category: row.category.name,
+                        period: formatMonth(month, locale),
+                      }),
+                      (tx) =>
+                        tx.category_id === row.category.id &&
+                        monthOf(tx.occurred_on) === month &&
+                        (who === "all" || authorOf(tx) === who),
+                    )
+                  }
+                >
+                  <IconChip icon={row.category.icon} color={row.category.color} />
+                  <span className="min-w-0 flex-1">
+                    <span className={ROW_TITLE}>{row.category.name}</span>
+                    {/* The word "change" went with the sparkline's arrival: a signed percentage
                       beside a line that shows the direction does not also need naming, and the
                       three of them together pushed the row into truncating. */}
-                  <span className={ROW_SUB}>
-                    {Math.round(row.share * 100)}% {t("reports.share")}
-                    {row.changeRatio !== null &&
-                      ` · ${row.changeRatio > 0 ? "+" : ""}${Math.round(row.changeRatio * 100)}%`}
-                  </span>
-                </span>
-                {/* Six months of shape beside the one month of figure. "+18%" is one comparison
-                    against one month; the line says whether it is a spike or a climb. */}
-                <Sparkline
-                  values={trends.get(row.category.id) ?? []}
-                  color={row.category.color ?? "var(--muted-foreground)"}
-                  label={t("reports.trend")}
-                />
-                {(() => {
-                  const limit = monthKind === "expense" ? budgetOf(row.category.id, month) : null;
-                  if (!limit)
-                    return <Amount minor={row.total} currency={baseCurrency} tone="neutral" />;
-                  // The budget under the figure, and the figure red once past it. Nothing more:
-                  // no bar and no pace — the number against the number is the whole question.
-                  return (
-                    <span className="shrink-0 text-right">
-                      <Amount
-                        minor={row.total}
-                        currency={baseCurrency}
-                        tone={row.total > limit.inBase ? "expense" : "neutral"}
-                      />
-                      <span className="sensitive block text-xs text-muted-foreground">
-                        {limit.lineFor(row.total)}
-                      </span>
+                    <span className={ROW_SUB}>
+                      {Math.round(row.share * 100)}% {t("reports.share")}
+                      {row.changeRatio !== null &&
+                        ` · ${row.changeRatio > 0 ? "+" : ""}${Math.round(row.changeRatio * 100)}%`}
                     </span>
-                  );
-                })()}
-              </button>
-            ))}
-          </div>
+                  </span>
+                  {/* Six months of shape beside the one month of figure. "+18%" is one comparison
+                    against one month; the line says whether it is a spike or a climb. */}
+                  <Sparkline
+                    values={trends.get(row.category.id) ?? []}
+                    color={row.category.color ?? "var(--muted-foreground)"}
+                    label={t("reports.trend")}
+                  />
+                  {(() => {
+                    const limit = monthKind === "expense" ? budgetOf(row.category.id, month) : null;
+                    if (!limit)
+                      return <Amount minor={row.total} currency={baseCurrency} tone="neutral" />;
+                    // The budget under the figure, and the figure red once past it. Nothing more:
+                    // no bar and no pace — the number against the number is the whole question.
+                    return (
+                      <span className="shrink-0 text-right">
+                        <Amount
+                          minor={row.total}
+                          currency={baseCurrency}
+                          tone={row.total > limit.inBase ? "expense" : "neutral"}
+                        />
+                        <span className="sensitive block text-xs text-muted-foreground">
+                          {limit.lineFor(row.total)}
+                        </span>
+                      </span>
+                    );
+                  })()}
+                </button>
+              ))}
+            </div>
+          )}
         </>
       )}
 
-      {tab === "netWorth" && (
-        <NetWorthReport
-          transactions={transactions}
-          accounts={accounts}
-          from={range.from}
-          to={range.to}
-        />
-      )}
-
-      {tab === "cashflow" && (
+      {tab === "accounts" && (
         <>
+          <NetWorthReport
+            transactions={transactions}
+            accounts={accounts}
+            from={range.from}
+            to={range.to}
+          />
+
           {/* The chart answers "are we spending more than we earn, and is it getting worse"; the
               rows below answer "on which card". Different questions, one tab. */}
-          <div className="mb-3">
+          <div className="mt-3 mb-3">
             <CashflowChart
               points={cashflowOverTime(
                 transactions,
@@ -581,33 +611,6 @@ export function ReportsPage() {
             ))}
           </div>
         </>
-      )}
-
-      {tab === "byMember" && (
-        <div className={LIST}>
-          {spendByMember(transactions, members, range.from, range.to).map((row) => (
-            <button
-              key={row.member.id}
-              type="button"
-              className={cn(ROW, "hover:bg-accent active:bg-accent")}
-              onClick={() =>
-                drill(
-                  row.member.display_name,
-                  (tx) =>
-                    authorOf(tx) === row.member.id &&
-                    countsForMemberReport(tx, range.from, range.to),
-                )
-              }
-            >
-              <IconChip icon="👤" color={row.member.avatar_color} />
-              <span className="min-w-0 flex-1">
-                <span className={ROW_TITLE}>{row.member.display_name}</span>
-                <span className={ROW_SUB}>{t("history.count", { count: row.count })}</span>
-              </span>
-              <Amount minor={row.expenses} currency={baseCurrency} tone="expense" />
-            </button>
-          ))}
-        </div>
       )}
 
       {drillDown && (

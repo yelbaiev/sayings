@@ -1,7 +1,7 @@
 import type { Currency } from "@shared/currency";
 import type { Minor } from "@shared/money";
 import { convertMinor, minorToMajor, signedMinor } from "@shared/money";
-import type { Account, Category, Member, Transaction } from "@shared/schema";
+import type { Account, Category, Transaction } from "@shared/schema";
 import { accountDelta } from "@shared/money";
 import { addMonths, monthOf } from "./format";
 
@@ -450,56 +450,10 @@ export function cashflowByAccount(
 
 /* ------------------------------------------------------------------------- by member */
 
-export interface MemberSpendRow {
-  member: Member;
-  expenses: Minor;
-  income: Minor;
-  count: number;
-}
-
-/** Who entered a transaction. The per-member report answers "who spends", and editing is not
- *  spending; updated_by is the fallback for rows older than created_by. */
+/** Who entered a transaction — the month report's person filter. Editing is not entering;
+ *  updated_by is the fallback for rows older than created_by. */
 export function authorOf(tx: Transaction): string {
   return tx.created_by ?? tx.updated_by ?? "";
-}
-
-/**
- * Whether a row belongs in the per-member report: inside the period, and money that came in or
- * went out (transfers and zero rows are neither). Shared with the report's tap-through list —
- * that list once filtered by author alone, so a row counting a year opened every transaction the
- * person had ever entered, transfers included.
- */
-export function countsForMemberReport(tx: Transaction, fromIso: string, toIso: string): boolean {
-  if (tx.occurred_on < fromIso || tx.occurred_on > toIso) return false;
-  return signedMinor(tx.kind, tx.base_amount_minor) !== 0;
-}
-
-export function spendByMember(
-  transactions: Transaction[],
-  members: Member[],
-  fromIso: string,
-  toIso: string,
-): MemberSpendRow[] {
-  const rows = new Map<string, { expenses: Minor; income: Minor; count: number }>();
-
-  for (const tx of transactions) {
-    if (!countsForMemberReport(tx, fromIso, toIso)) continue;
-    const signed = signedMinor(tx.kind, tx.base_amount_minor);
-    const id = authorOf(tx);
-    const row = rows.get(id) ?? { expenses: 0, income: 0, count: 0 };
-    if (signed < 0) row.expenses += -signed;
-    else row.income += signed;
-    row.count++;
-    rows.set(id, row);
-  }
-
-  return members
-    .map((member) => ({
-      member,
-      ...(rows.get(member.id) ?? { expenses: 0, income: 0, count: 0 }),
-    }))
-    .filter((row) => row.count > 0)
-    .sort((a, b) => b.expenses - a.expenses);
 }
 
 /* ---------------------------------------------------------------------------- export */

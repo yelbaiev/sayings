@@ -30,8 +30,6 @@ import type { Member } from "@shared/schema";
 /* Injected from package.json at build time, so it cannot drift from the released version. */
 const APP_VERSION = __APP_VERSION__;
 
-
-
 export function SettingsPage() {
   const {
     t,
@@ -68,6 +66,7 @@ export function SettingsPage() {
   /** The base being confirmed. Null when no change is pending. */
   const [pendingBase, setPendingBase] = useState<Currency | null>(null);
   const [inviting, setInviting] = useState(false);
+  const [editingCurrencies, setEditingCurrencies] = useState(false);
 
   useEffect(() => {
     // Shows how much of this device the mirror is using. Reassuring rather than alarming —
@@ -124,8 +123,34 @@ export function SettingsPage() {
     <div className={PAGE}>
       <h1 className={PAGE_TITLE}>{t("settings.title")}</h1>
 
+      {/*
+        Order follows how often each part is opened, not how the data is shaped. Accounts,
+        categories, budgets and recurring payments are what Settings is visited for; they used to sit
+        under a forty-five-chip currency grid, two screens down.
+      */}
       <section className="mb-6">
-        <h2 className={SECTION_TITLE}>{t("settings.household")}</h2>
+        <div className={LIST}>
+          {(
+            [
+              ["/accounts", t("accounts.title")],
+              ["/categories", t("categories.title")],
+              ["/budgets", t("budgets.title")],
+              ["/recurring", t("recurring.title")],
+              ["/import", t("import.title")],
+            ] as const
+          ).map(([to, label]) => (
+            <Link key={to} to={to} className={cn(ROW, "hover:bg-accent active:bg-accent")}>
+              <span className="min-w-0 flex-1 font-medium">{label}</span>
+              <span className="shrink-0 text-lg leading-none text-muted-foreground" aria-hidden>
+                ›
+              </span>
+            </Link>
+          ))}
+        </div>
+      </section>
+
+      <section className="mb-6">
+        <h2 className={SECTION_TITLE}>{t("settings.general")}</h2>
         <div className={cn(CARD, "flex flex-col gap-4")}>
           <Field label={t("settings.displayName")}>
             <input
@@ -248,12 +273,33 @@ export function SettingsPage() {
             </select>
           </Field>
 
-          <EnabledCurrenciesField
-            base={baseCurrency}
-            value={enabled}
-            locked={currenciesInUse}
-            onChange={(next) => void saveEnabled(next)}
-          />
+          {/* The chosen few on one line; the forty-five-chip grid only while changing them. It is
+              set once and touched perhaps yearly, and it used to be the tallest thing on the page. */}
+          {editingCurrencies ? (
+            <>
+              <EnabledCurrenciesField
+                base={baseCurrency}
+                value={enabled}
+                locked={currenciesInUse}
+                onChange={(next) => void saveEnabled(next)}
+              />
+              <Button size="sm" onClick={() => setEditingCurrencies(false)}>
+                {t("settings.currenciesDone")}
+              </Button>
+            </>
+          ) : (
+            <div className="flex items-center justify-between gap-3">
+              <span className="min-w-0">
+                <span className="block text-sm font-medium">{t("settings.enabledCurrencies")}</span>
+                <span className="block truncate text-sm text-muted-foreground">
+                  {[baseCurrency, ...enabled.filter((c) => c !== baseCurrency)].join(", ")}
+                </span>
+              </span>
+              <Button size="sm" onClick={() => setEditingCurrencies(true)}>
+                {t("settings.currenciesChange")}
+              </Button>
+            </div>
+          )}
         </div>
       </section>
 
@@ -310,28 +356,6 @@ export function SettingsPage() {
         )}
       </section>
 
-      <section className="mb-6">
-        <h2 className={SECTION_TITLE}>{t("settings.manage")}</h2>
-        <div className={LIST}>
-          {(
-            [
-              ["/accounts", t("accounts.title")],
-              ["/categories", t("categories.title")],
-              ["/budgets", t("budgets.title")],
-              ["/recurring", t("recurring.title")],
-              ["/import", t("import.title")],
-            ] as const
-          ).map(([to, label]) => (
-            <Link key={to} to={to} className={cn(ROW, "hover:bg-accent active:bg-accent")}>
-              <span className="min-w-0 flex-1 font-medium">{label}</span>
-              <span className="shrink-0 text-lg leading-none text-muted-foreground" aria-hidden>
-                ›
-              </span>
-            </Link>
-          ))}
-        </div>
-      </section>
-
       <RemindersSection />
 
       {/* The section this whole project exists for. */}
@@ -349,61 +373,12 @@ export function SettingsPage() {
           >
             {t("settings.export")}
           </Button>
-          <p className={HINT}>{t("settings.exportHint")}</p>
-
-          <p className="mt-3 text-xs text-muted-foreground">
+          <p className={HINT}>
+            {t("settings.exportHint")}{" "}
             {lastBackup
               ? t("settings.lastBackup", { time: formatRelativeTime(lastBackup, locale) })
               : t("settings.noBackupYet")}
           </p>
-
-          <div className="mt-2 flex flex-col gap-1 text-xs text-muted-foreground">
-            <span>{t("history.count", { count: transactionCount })}</span>
-            {storage !== null && (
-              <span>{t("settings.storageUsed", { size: formatBytes(storage, locale) })}</span>
-            )}
-          </div>
-
-          <Button
-            block
-            layoutClassName="mt-3"
-            onClick={() => {
-              // Safe by construction: the server is authoritative and the outbox is kept,
-              // so nothing unsent is discarded.
-              void resetLocalMirror().then(() => requestSync());
-            }}
-          >
-            {t("settings.resync")}
-          </Button>
-          <p className={HINT}>{t("settings.resyncHint")}</p>
-
-          {/* Sits under resync on purpose: the two are easy to confuse and the distinction matters.
-              Resync rebuilds the *data* from the server; this replaces the *app*. Nothing here goes
-              near IndexedDB, which holds the outbox as well as the mirror. */}
-          <Button
-            block
-            disabled={reloading}
-            layoutClassName="mt-3"
-            onClick={() => {
-              setReloading(true);
-              void hardReload();
-            }}
-          >
-            {t("settings.hardReload")}
-          </Button>
-          <p className={HINT}>{t("settings.hardReloadHint")}</p>
-
-          <Button
-            block
-            layoutClassName="mt-3"
-            onClick={() => {
-              // Access-fronted sessions ignore this (the JWT re-admits immediately); passkey
-              // sessions land on the login screen, which is the point.
-              void authLogout().finally(() => window.location.replace("/"));
-            }}
-          >
-            {t("settings.logout")}
-          </Button>
         </div>
       </section>
 
@@ -418,18 +393,79 @@ export function SettingsPage() {
         </section>
       )}
 
-      {/* Sends the reader back to Home rather than opening the intro here: its last panel opens the
-          entry sheet, and the tour reads oddly if it starts from the settings screen. */}
-      <Button
-        variant="ghost"
-        size="sm"
-        layoutClassName="mt-2"
-        onClick={() => {
-          void setDevicePrefs({ introSeen: false }).then(() => navigate("/"));
-        }}
-      >
-        {t("settings.showIntro")}
-      </Button>
+      {/*
+        Repairs and rarely-wanted actions, folded away. Three full-width buttons with paragraphs
+        under each read as things to do; they are things to do when something is wrong. A native
+        <details> so it opens with no state and works with the keyboard.
+      */}
+      <details className={cn(CARD, "mb-6 [&_summary::-webkit-details-marker]:hidden")}>
+        <summary className="flex min-h-11 cursor-pointer list-none items-center justify-between gap-3 font-medium">
+          {t("settings.troubleshooting")}
+          <span className="text-muted-foreground" aria-hidden>
+            ›
+          </span>
+        </summary>
+
+        <div className="mt-2 flex flex-col gap-1 text-xs text-muted-foreground">
+          <span>{t("history.count", { count: transactionCount })}</span>
+          {storage !== null && (
+            <span>{t("settings.storageUsed", { size: formatBytes(storage, locale) })}</span>
+          )}
+        </div>
+
+        <Button
+          block
+          layoutClassName="mt-3"
+          onClick={() => {
+            // Safe by construction: the server is authoritative and the outbox is kept,
+            // so nothing unsent is discarded.
+            void resetLocalMirror().then(() => requestSync());
+          }}
+        >
+          {t("settings.resync")}
+        </Button>
+        <p className={HINT}>{t("settings.resyncHint")}</p>
+
+        {/* Sits under resync on purpose: the two are easy to confuse and the distinction matters.
+            Resync rebuilds the *data* from the server; this replaces the *app*. Nothing here goes
+            near IndexedDB, which holds the outbox as well as the mirror. */}
+        <Button
+          block
+          disabled={reloading}
+          layoutClassName="mt-3"
+          onClick={() => {
+            setReloading(true);
+            void hardReload();
+          }}
+        >
+          {t("settings.hardReload")}
+        </Button>
+        <p className={HINT}>{t("settings.hardReloadHint")}</p>
+
+        {/* Sends the reader back to Home rather than opening the intro here: its last panel opens
+            the entry sheet, and the tour reads oddly if it starts from the settings screen. */}
+        <Button
+          block
+          layoutClassName="mt-3"
+          onClick={() => {
+            void setDevicePrefs({ introSeen: false }).then(() => navigate("/"));
+          }}
+        >
+          {t("settings.showIntro")}
+        </Button>
+
+        <Button
+          block
+          layoutClassName="mt-3"
+          onClick={() => {
+            // Access-fronted sessions ignore this (the JWT re-admits immediately); passkey
+            // sessions land on the login screen, which is the point.
+            void authLogout().finally(() => window.location.replace("/"));
+          }}
+        >
+          {t("settings.logout")}
+        </Button>
+      </details>
 
       <VersionRow />
     </div>

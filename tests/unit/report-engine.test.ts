@@ -1,4 +1,4 @@
-import type { Account, Category, Member, Transaction } from "@shared/schema";
+import type { Account, Category, Transaction } from "@shared/schema";
 import { describe, expect, it } from "vitest";
 import {
   authorOf,
@@ -6,13 +6,11 @@ import {
   cashflowOverTime,
   categoryMatrix,
   categoryTrends,
-  countsForMemberReport,
   matrixToTsv,
   monthOverview,
   netWorthOverTime,
   periodOf,
   periodRange,
-  spendByMember,
 } from "~/lib/report-engine";
 
 function category(id: string, name: string, kind: "expense" | "income" = "expense"): Category {
@@ -44,22 +42,6 @@ function account(id: string, currency: string, opening = 0): Account {
     exclude_from_totals: 0,
     archived: 0,
     sort_order: 1,
-    rev: 1,
-    updated_at: 1,
-    deleted: 0,
-  };
-}
-
-function member(id: string, name: string): Member {
-  return {
-    id,
-    household_id: "hh_default",
-    email: `${id}@example.com`,
-    display_name: name,
-    avatar_color: "#3E63DD",
-    locale: "en",
-    role: "member",
-    created_at: 1,
     rev: 1,
     updated_at: 1,
     deleted: 0,
@@ -513,48 +495,13 @@ describe("cashflowOverTime", () => {
   });
 });
 
-describe("spendByMember", () => {
-  it("attributes spending to whoever entered it", () => {
-    const members = [member("m1", "Me"), member("m2", "Wife")];
-    const rows = [
-      tx({ occurred_on: "2026-08-01", updated_by: "m1", amount_minor: 100_000 }),
-      tx({ occurred_on: "2026-08-02", updated_by: "m2", amount_minor: 300_000 }),
-      tx({ occurred_on: "2026-08-03", updated_by: "m2", kind: "income", amount_minor: 900_000, category_id: "cat_salary" }),
-    ];
-
-    const byMember = spendByMember(rows, members, "2026-08-01", "2026-08-31");
-    expect(byMember[0]!.member.display_name).toBe("Wife"); // ordered by spend
-    expect(byMember[0]!.expenses).toBe(300_000);
-    expect(byMember[0]!.income).toBe(900_000);
-    expect(byMember[1]!.expenses).toBe(100_000);
+describe("authorOf", () => {
+  it("is who entered the row, not who last edited it", () => {
+    expect(authorOf(tx({ occurred_on: "2026-08-01", created_by: "m1", updated_by: "m2" }))).toBe("m1");
   });
 
-  it("omits members with no activity in the range", () => {
-    const members = [member("m1", "Me"), member("m2", "Wife")];
-    const byMember = spendByMember(
-      [tx({ occurred_on: "2026-08-01", updated_by: "m1" })],
-      members,
-      "2026-08-01",
-      "2026-08-31",
-    );
-    expect(byMember).toHaveLength(1);
-  });
-
-  it("opens a tap-through list with exactly the rows the figure counted", () => {
-    // The list used to filter by author alone: every transaction the person ever entered,
-    // transfers included, under a row that counted one period.
-    const members = [member("m1", "Me")];
-    const rows = [
-      tx({ occurred_on: "2026-08-05", updated_by: "m1", amount_minor: 100_000 }),
-      tx({ occurred_on: "2025-01-05", updated_by: "m1", amount_minor: 50_000 }),
-      tx({ occurred_on: "2026-08-06", updated_by: "m1", kind: "transfer", category_id: null }),
-    ];
-    const [row] = spendByMember(rows, members, "2026-08-01", "2026-08-31");
-    const listed = rows.filter(
-      (t) => authorOf(t) === "m1" && countsForMemberReport(t, "2026-08-01", "2026-08-31"),
-    );
-    expect(listed).toHaveLength(row!.count);
-    expect(listed).toHaveLength(1);
+  it("falls back to the last editor for rows older than created_by", () => {
+    expect(authorOf(tx({ occurred_on: "2026-08-01", updated_by: "m2" }))).toBe("m2");
   });
 });
 
