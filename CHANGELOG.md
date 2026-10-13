@@ -1,5 +1,10 @@
 # Changelog
 
+## Version 1.5.6
+
+- Changed: a new app icon — three stacks of gold coins growing, for savings — on the home screen, in the browser tab and in Android notifications
+- Fixed: on iPhone the home-screen icon could turn into a screenshot of the app after adding it. The icon is now built into the page, so iOS no longer has to fetch it past the sign-in. Remove SAYings from the home screen and add it again to get the new icon
+
 ## Version 1.5.5
 
 - Added: a budget limit can be set in your second currency (Settings → Second currency) — for example €300 for travel. It's shown as "€210 / €300", with what it's worth in your main currency today underneath

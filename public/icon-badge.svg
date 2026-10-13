@@ -1,9 +1,32 @@
-<!-- The app mark as a status-bar badge for Android notifications: the three bars of icon.svg alone,
-     white on transparent, cropped to them. Android uses only the alpha channel and tints it. -->
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="116 132 280 280" width="96" height="96">
-  <g fill="#FFFFFF">
-    <rect x="136" y="300" width="64" height="88"  rx="32"/>
-    <rect x="224" y="228" width="64" height="160" rx="32"/>
-    <rect x="312" y="156" width="64" height="232" rx="32"/>
+<!-- The app mark as a status-bar badge for Android notifications: the coin stacks of icon.svg alone,
+     white on transparent, cropped to them. Android uses only the alpha channel and tints it, so the
+     seams between coins are cut out with a mask rather than drawn in a dark colour. -->
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="76 76 360 360" width="96" height="96">
+  <mask id="seams" maskUnits="userSpaceOnUse" x="0" y="0" width="512" height="512">
+    <rect width="512" height="512" fill="#FFFFFF"/>
+    <g fill="#FFFFFF" stroke="#000000" stroke-width="8">
+    <rect x="84" y="288" width="104" height="44" rx="22"/>
+    <rect x="84" y="252" width="104" height="44" rx="22"/>
+    <rect x="204" y="288" width="104" height="44" rx="22"/>
+    <rect x="204" y="252" width="104" height="44" rx="22"/>
+    <rect x="204" y="216" width="104" height="44" rx="22"/>
+    <rect x="324" y="288" width="104" height="44" rx="22"/>
+    <rect x="324" y="252" width="104" height="44" rx="22"/>
+    <rect x="324" y="216" width="104" height="44" rx="22"/>
+    <rect x="324" y="180" width="104" height="44" rx="22"/>
+  </g>
+  </mask>
+  <g mask="url(#seams)">
+    <g fill="#FFFFFF">
+    <rect x="84" y="288" width="104" height="44" rx="22"/>
+    <rect x="84" y="252" width="104" height="44" rx="22"/>
+    <rect x="204" y="288" width="104" height="44" rx="22"/>
+    <rect x="204" y="252" width="104" height="44" rx="22"/>
+    <rect x="204" y="216" width="104" height="44" rx="22"/>
+    <rect x="324" y="288" width="104" height="44" rx="22"/>
+    <rect x="324" y="252" width="104" height="44" rx="22"/>
+    <rect x="324" y="216" width="104" height="44" rx="22"/>
+    <rect x="324" y="180" width="104" height="44" rx="22"/>
+  </g>
   </g>
 </svg>
