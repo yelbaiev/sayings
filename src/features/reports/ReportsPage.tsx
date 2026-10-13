@@ -1,11 +1,15 @@
 import type { Currency } from "@shared/currency";
 import { signedMinor } from "@shared/money";
-import type { Transaction } from "@shared/schema";
+import type { Budget, Transaction } from "@shared/schema";
+import { useLiveQuery } from "dexie-react-hooks";
 import { useMemo, useState } from "react";
 import { useApp } from "~/app/AppContext";
+import { db } from "~/db/dexie";
 import { useAccounts, useCategories, useLookups, useMembers, useTransactions } from "~/db/queries";
-import { useLatestRates } from "~/db/useRates";
+import { useLatestRates, useToBase } from "~/db/useRates";
+import { EntrySheet } from "~/features/entry/EntrySheet";
 import { TransactionRow } from "~/features/transactions/TransactionRow";
+import { budgetFor, limitInBase } from "~/lib/budget-engine";
 import { CashflowChart, DonutChart, PeriodStrip, Sparkline, TrendChart } from "./charts";
 import {
   authorOf,
@@ -22,13 +26,54 @@ import {
   spendByMember,
   type Period,
 } from "~/lib/report-engine";
-import { addMonths, formatAmount, formatMonth, formatMonthShort, monthOf, todayIso } from "~/lib/format";
+import {
+  addMonths,
+  formatAmount,
+  formatMoney,
+  formatMonth,
+  formatMonthShort,
+  monthOf,
+  todayIso,
+} from "~/lib/format";
 import { cn } from "~/lib/cn";
 import { Button } from "~/ui/Button";
 import { CARD, LIST, PAGE_TITLE, ROW, ROW_SUB, ROW_TITLE } from "~/ui/recipes";
-import { Amount, Chip, EmptyState, IconChip, SecondaryAmount, Segmented, Sheet } from "~/ui";
+import {
+  Amount,
+  Chip,
+  EmptyState,
+  IconChip,
+  SecondaryAmount,
+  Segmented,
+  Sheet,
+  Toast,
+  type ToastSpec,
+} from "~/ui";
 
 type ReportTab = "matrix" | "month" | "netWorth" | "cashflow" | "byMember";
+
+const TAB_KEY = "sayings.reports.tab";
+const TABS: ReportTab[] = ["matrix", "month", "netWorth", "cashflow", "byMember"];
+
+/**
+ * The tab to open on: the last one chosen on this device, else Month on a phone and the table on
+ * anything wider. The table is a spreadsheet — on a 390px screen it shows one category column and
+ * two months — while Month is one screen of donut and list, made for a thumb.
+ *
+ * Remembered in localStorage as a per-device convenience; it can be missing or throw (private
+ * mode), and then the width decides.
+ */
+function initialTab(): ReportTab {
+  try {
+    const saved = window.localStorage.getItem(TAB_KEY);
+    if (saved && (TABS as string[]).includes(saved)) return saved as ReportTab;
+  } catch {
+    // Storage unavailable: fall through to the width.
+  }
+  return window.matchMedia?.("(max-width: 640px)").matches ? "month" : "matrix";
+}
+
+const NO_BUDGETS: Budget[] = [];
 
 export function ReportsPage() {
   const { t, locale, baseCurrency } = useApp();
@@ -38,7 +83,20 @@ export function ReportsPage() {
   const members = useMembers();
   const lookups = useLookups();
 
-  const [tab, setTab] = useState<ReportTab>("matrix");
+  const [tab, setTabState] = useState<ReportTab>(initialTab);
+  const setTab = (next: ReportTab) => {
+    setTabState(next);
+    try {
+      window.localStorage.setItem(TAB_KEY, next);
+    } catch {
+      // Not remembered this time; the choice still applies.
+    }
+  };
+  // Raw rows; `budgetFor` skips deleted ones. The fallback is a constant so memos stay stable.
+  const budgets = useLiveQuery(async () => db.budgets.toArray()) ?? NO_BUDGETS;
+  const toBase = useToBase(baseCurrency);
+  const [editing, setEditing] = useState<Transaction | undefined>(undefined);
+  const [toast, setToast] = useState<ToastSpec | null>(null);
   const [period, setPeriod] = useState<Period>("month");
   const [kind, setKind] = useState<"expense" | "income">("expense");
   const [month, setMonth] = useState(() => monthOf(todayIso()));
@@ -51,7 +109,16 @@ export function ReportsPage() {
    */
   // Kept as a string because Segmented is a string-valued control; "all" means no limit.
   const [monthRange, setMonthRange] = useState<"12" | "24" | "all">("12");
-  const [drillDown, setDrillDown] = useState<{ title: string; rows: Transaction[] } | null>(null);
+  /*
+   * The filter, not the rows. Holding the rows froze the list at the moment it opened, so a
+   * transaction edited from it kept showing its old amount and category until the sheet was closed
+   * and reopened. Filtering the live ledger on every render keeps the list true after an edit — and
+   * a row moved to another category simply leaves it.
+   */
+  const [drillDown, setDrillDown] = useState<{
+    title: string;
+    filter: (tx: Transaction) => boolean;
+  } | null>(null);
   const [copied, setCopied] = useState(false);
 
   // Range spans from the earliest transaction to today, so a first-time user sees only the
@@ -117,8 +184,32 @@ export function ReportsPage() {
 
   /** Every figure in every report opens the transactions behind it. */
   function drill(title: string, filter: (tx: Transaction) => boolean) {
-    setDrillDown({ title, rows: transactions.filter(filter) });
+    setDrillDown({ title, filter });
   }
+
+  /**
+   * A category's budget for a month, for display beside its figures: the limit as set, in the
+   * currency it was set in, and the same limit in base for the over/under comparison.
+   *
+   * The plain monthly limit, with no rollover and no projection. Reports answer "what was the
+   * budget and did we keep to it"; the Budgets page is where carried-over amounts live.
+   */
+  function budgetOf(categoryId: string, bucket: string) {
+    const budget = budgetFor(budgets, categoryId, bucket);
+    if (!budget) return null;
+    const inBase = limitInBase(budget, toBase);
+    if (inBase === null) return null;
+    return {
+      label: formatMoney(budget.amount_minor, budget.currency as Currency, locale),
+      inBase,
+    };
+  }
+
+  // Shown only in the monthly table, and only when some category has a budget at all.
+  const showBudgetColumn =
+    period === "month" &&
+    kind === "expense" &&
+    matrix.rows.some((row) => budgetFor(budgets, row.category.id, monthOf(todayIso())));
 
   return (
     <div className="mx-auto w-full max-w-5xl p-4">
@@ -192,6 +283,9 @@ export function ReportsPage() {
               <thead>
                 <tr>
                   <th className="matrix__corner">{t("entry.category")}</th>
+                  {showBudgetColumn && (
+                    <th className="matrix__period">{t("reports.budget")}</th>
+                  )}
                   {matrixPeriods.map((bucket) => (
                     <th key={bucket} className="matrix__period">
                       {period === "month" ? formatMonthShort(bucket, locale) : bucket}
@@ -205,6 +299,7 @@ export function ReportsPage() {
                   <th scope="row" className="matrix__category">
                     {kind === "expense" ? t("reports.totalExpenses") : t("reports.totalIncome")}
                   </th>
+                  {showBudgetColumn && <td className="matrix__cell" />}
                   {matrixPeriods.map((bucket) => (
                     <td key={bucket} className="matrix__cell matrix__cell--total">
                       {formatAmount(matrix.totalsByPeriod.get(bucket) ?? 0, baseCurrency, locale)}
@@ -224,8 +319,17 @@ export function ReportsPage() {
                         {row.category.name}
                       </span>
                     </th>
+                    {showBudgetColumn && (
+                      <td className="matrix__cell matrix__budget sensitive">
+                        {budgetOf(row.category.id, monthOf(todayIso()))?.label ?? ""}
+                      </td>
+                    )}
                     {matrixPeriods.map((bucket) => {
                       const value = row.byPeriod.get(bucket) ?? 0;
+                      const limit =
+                        period === "month" && kind === "expense"
+                          ? budgetOf(row.category.id, bucket)
+                          : null;
                       return (
                         <td key={bucket} className="matrix__cell">
                           {value === 0 ? (
@@ -233,7 +337,10 @@ export function ReportsPage() {
                           ) : (
                             <button
                               type="button"
-                              className="matrix__value"
+                              className={cn(
+                                "matrix__value",
+                                limit && value > limit.inBase && "matrix__value--over",
+                              )}
                               onClick={() =>
                                 drill(
                                   t("reports.drillDown", {
@@ -382,7 +489,24 @@ export function ReportsPage() {
                   color={row.category.color ?? "var(--muted-foreground)"}
                   label={t("reports.trend")}
                 />
-                <Amount minor={row.total} currency={baseCurrency} tone="neutral" />
+                {(() => {
+                  const limit = monthKind === "expense" ? budgetOf(row.category.id, month) : null;
+                  if (!limit) return <Amount minor={row.total} currency={baseCurrency} tone="neutral" />;
+                  // The budget under the figure, and the figure red once past it. Nothing more:
+                  // no bar and no pace — the number against the number is the whole question.
+                  return (
+                    <span className="shrink-0 text-right">
+                      <Amount
+                        minor={row.total}
+                        currency={baseCurrency}
+                        tone={row.total > limit.inBase ? "expense" : "neutral"}
+                      />
+                      <span className="sensitive block text-xs text-muted-foreground">
+                        {t("reports.ofBudget", { amount: limit.label })}
+                      </span>
+                    </span>
+                  );
+                })()}
               </button>
             ))}
           </div>
@@ -465,12 +589,33 @@ export function ReportsPage() {
       {drillDown && (
         <Sheet title={drillDown.title} onClose={() => setDrillDown(null)}>
           <div className={LIST}>
-            {drillDown.rows.map((tx) => (
-              <TransactionRow key={tx.id} transaction={tx} lookups={lookups} showDate />
+            {transactions.filter(drillDown.filter).map((tx) => (
+              <TransactionRow
+                key={tx.id}
+                transaction={tx}
+                lookups={lookups}
+                showDate
+                onClick={() => setEditing(tx)}
+              />
             ))}
           </div>
         </Sheet>
       )}
+
+      {/* Opened over the list, which stays underneath: after saving, the list shows the change and
+          the next transaction is one tap away. */}
+      {editing && (
+        <EntrySheet
+          editing={editing}
+          onClose={() => setEditing(undefined)}
+          onSaved={(spec) => {
+            setEditing(undefined);
+            if (spec) setToast(spec);
+          }}
+        />
+      )}
+
+      {toast && <Toast spec={toast} onDismiss={() => setToast(null)} />}
     </div>
   );
 }

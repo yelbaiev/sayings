@@ -12,7 +12,6 @@ export interface BudgetFigures {
   limit: Minor;
   /** Limit − spent, in the same currency, so the three figures always add up on screen. */
   remaining: Minor;
-  projected: Minor | null;
 }
 
 /**
@@ -39,7 +38,6 @@ export function useBudgetFigures(): {
           spent: status.spent,
           limit: status.effectiveLimit,
           remaining: status.remaining,
-          projected: status.projected,
         };
       }
       // A status only exists when the limit could be converted, so a rate is held here.
@@ -56,7 +54,6 @@ export function useBudgetFigures(): {
         spent,
         limit,
         remaining: limit - spent,
-        projected: status.projected === null ? null : show(status.projected),
       };
     },
     [rates, baseCurrency],

@@ -1,6 +1,6 @@
 import type { Minor } from "@shared/money";
 import type { Budget, Category, Transaction } from "@shared/schema";
-import { addMonths, dayOfMonth, monthOf } from "./format";
+import { addMonths, monthOf } from "./format";
 
 /**
  * Budget calculations, as pure functions.
@@ -38,14 +38,6 @@ export interface BudgetStatus {
   remaining: Minor;
   /** Spent divided by the effective limit. Above 1 means over budget. */
   ratio: number;
-  /** Spend projected to month end from the run rate so far. Null for a past month. */
-  projected: Minor | null;
-}
-
-/** Days in a month, from a 'YYYY-MM' string. */
-function daysInMonth(month: string): number {
-  const [y, m] = month.split("-").map(Number) as [number, number];
-  return new Date(Date.UTC(y, m, 0)).getUTCDate();
 }
 
 /**
@@ -144,22 +136,12 @@ export function budgetStatus(
   category: Category,
   transactions: Transaction[],
   month: string,
-  today: string,
   /** The monthly limit in base currency — see `limitInBase`. Defaults to the stored amount. */
   limit: Minor = budget.amount_minor,
 ): BudgetStatus {
   const spent = spentInMonth(transactions, budget.category_id, month);
   const carried = rolloverCredit(budget, transactions, month, 36, limit);
   const effectiveLimit = limit + carried;
-
-  // Only project for the month in progress: a finished month's actual is the answer, and a
-  // future month has no run rate to extrapolate from.
-  let projected: Minor | null = null;
-  if (monthOf(today) === month) {
-    const elapsed = dayOfMonth(today);
-    const total = daysInMonth(month);
-    projected = elapsed > 0 ? Math.round((spent / elapsed) * total) : 0;
-  }
 
   return {
     budget,
@@ -170,7 +152,6 @@ export function budgetStatus(
     spent,
     remaining: effectiveLimit - spent,
     ratio: effectiveLimit > 0 ? spent / effectiveLimit : 0,
-    projected,
   };
 }
 
@@ -180,7 +161,6 @@ export function budgetStatuses(
   categories: Category[],
   transactions: Transaction[],
   month: string,
-  today: string,
   toBase?: ToBase,
 ): BudgetStatus[] {
   const categoryById = new Map(categories.map((c) => [c.id, c]));
@@ -202,7 +182,6 @@ export function budgetStatuses(
         categoryById.get(category.id) ?? category,
         transactions,
         month,
-        today,
         limit,
       ),
     );

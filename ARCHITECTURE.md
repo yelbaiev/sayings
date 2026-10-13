@@ -25,7 +25,7 @@ rates, stores files, and backs up — it never computes a report.
 │    IndexedDB mirror (Dexie) ── every read, every report  │
 │    outbox ── drains in background, never blocks a save    │
 │    src/lib/*.ts ── pure engines: reports, budgets, fx,    │
-│                    savings, prediction, keypad arithmetic │
+│                    prediction, keypad arithmetic          │
 └──────────────────────────────────────────────────────────┘
 ```
 
@@ -60,14 +60,13 @@ rates, stores files, and backs up — it never computes a report.
 - **Balances are derived, never stored.** A stored balance is a second source of truth.
 - **Category and account names are shared data, not translated strings.** Both members read the
   interface in their own language but see one ledger.
-- **Money left under a budget is part of the month's leftover, never added to it.** The savings
-  suggestion (`src/lib/savings.ts`) is income − expenses less net transfers into `savings`-type
-  accounts; the under-limit figure only explains where part of it came from. Rollover limits are
-  left out of that figure because their unspent amount already belongs to next month.
 - **A budget limit keeps the currency it was set in.** It is converted to the base at today's rate
   when read (`ToBase` in `src/lib/budget-engine.ts`) and shown back in its own currency; a limit
   with no rate is left out rather than read as base. A base change converts only limits in the old
   base (`worker/reprice.ts`).
+- **Reports show the plain monthly limit.** "This month" and the monthly table compare a category's
+  spending with `budgetFor(...)` for that month — no rollover, no pace. Carried-over amounts are
+  the Budgets page's business; a report answers "what was the budget and did we keep to it".
 - **No dynamic code evaluation.** `no-eval` / `no-new-func` are errors; a test asserts the
   keypad's evaluator module contains neither.
 

@@ -1,6 +1,6 @@
 import { convertMinor } from "@shared/money";
 import { type Currency } from "@shared/currency";
-import type { Minor, TxKind } from "@shared/money";
+import type { TxKind } from "@shared/money";
 import { serialiseTemplate, type QuickTileTemplate } from "@shared/quick-tile";
 import type { Transaction } from "@shared/schema";
 import { useEffect, useMemo, useState } from "react";
@@ -55,19 +55,10 @@ import { haptic } from "~/lib/haptics";
 /* Seven, not six: the grid is four columns and the "All" button occupies a cell, so six left a
    single empty slot in the second row. Seven fills both rows exactly. */
 
-export interface EntryPrefill {
-  kind: TxKind;
-  /** In base-currency minor units. */
-  amountMinor: Minor;
-  toAccountId?: string | null;
-  note?: string;
-}
-
 export function EntrySheet({
   editing,
   initialKind,
   contextAccountId,
-  prefill,
   onClose,
   onSaved,
 }: {
@@ -76,11 +67,6 @@ export function EntrySheet({
   initialKind?: TxKind | undefined;
   /** The account whose transactions are being viewed, if any — see resolveAccountId. */
   contextAccountId?: string | null | undefined;
-  /**
-   * A new entry started from a suggestion — Home's "move to savings". Every field stays editable; the
-   * figure is a proposal, and the person decides how much actually moves. Ignored when editing.
-   */
-  prefill?: EntryPrefill | undefined;
   onClose: () => void;
   onSaved: (toast?: ToastSpec) => void;
 }) {
@@ -90,33 +76,24 @@ export function EntrySheet({
   const members = useMembers();
   const transactions = useTransactions();
 
-  const seed = editing ? undefined : prefill;
-  const [kind, setKind] = useState<TxKind>(
-    editing?.kind ?? seed?.kind ?? initialKind ?? "expense",
-  );
+  const [kind, setKind] = useState<TxKind>(editing?.kind ?? initialKind ?? "expense");
   // Seeded from the row being edited. Previously this always started empty, so opening an
   // existing transaction showed 0 while its category and account were correctly preselected —
   // and saving would have overwritten a real amount with whatever was retyped.
   const [expression, setExpression] = useState<Expression>(() =>
-    editing
-      ? fromMinor(editing.amount_minor, editing.currency as Currency)
-      : seed && seed.amountMinor > 0
-        ? fromMinor(seed.amountMinor, baseCurrency)
-        : EMPTY_EXPRESSION,
+    editing ? fromMinor(editing.amount_minor, editing.currency as Currency) : EMPTY_EXPRESSION,
   );
   const [categoryId, setCategoryId] = useState<string | null>(editing?.category_id ?? null);
   const [accountOverride, setAccountOverride] = useState<string | null>(
     editing?.account_id ?? null,
   );
-  const [toAccountId, setToAccountId] = useState<string | null>(
-    editing?.to_account_id ?? seed?.toAccountId ?? null,
-  );
+  const [toAccountId, setToAccountId] = useState<string | null>(editing?.to_account_id ?? null);
   /* The destination leg of a cross-currency transfer, in its own account's minor units. */
   const [toAmountMinor, setToAmountMinor] = useState<number | null>(
     editing?.to_amount_minor ?? null,
   );
   const [occurredOn, setOccurredOn] = useState(editing?.occurred_on ?? todayIso());
-  const [note, setNote] = useState(editing?.note ?? seed?.note ?? "");
+  const [note, setNote] = useState(editing?.note ?? "");
   const [receiptKey, setReceiptKey] = useState<string | null>(editing?.receipt_key ?? null);
   /**
    * Closed until the amount field is tapped.

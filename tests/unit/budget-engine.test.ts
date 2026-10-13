@@ -96,7 +96,6 @@ describe("budgetStatus", () => {
       category(),
       [tx("2026-08-01", 400_000)],
       "2026-08",
-      "2026-08-31",
     );
     expect(status.spent).toBe(400_000);
     expect(status.effectiveLimit).toBe(1_000_000);
@@ -110,45 +109,9 @@ describe("budgetStatus", () => {
       category(),
       [tx("2026-08-01", 1_200_000)],
       "2026-08",
-      "2026-08-31",
     );
     expect(status.remaining).toBe(-200_000);
     expect(status.ratio).toBeGreaterThan(1);
-  });
-
-  it("projects from the run rate for the month in progress", () => {
-    // ₴2 000 over the first 10 days of a 31-day month projects to ₴6 200.
-    const status = budgetStatus(
-      budget(),
-      category(),
-      [tx("2026-08-05", 200_000)],
-      "2026-08",
-      "2026-08-10",
-    );
-    expect(status.projected).toBe(620_000);
-  });
-
-  it("does not project for a past month, where the actual is the answer", () => {
-    const status = budgetStatus(
-      budget(),
-      category(),
-      [tx("2026-07-05", 200_000)],
-      "2026-07",
-      "2026-08-10",
-    );
-    expect(status.projected).toBeNull();
-  });
-
-  it("handles February's length correctly when projecting", () => {
-    // 2028 is a leap year: 29 days. ₴1 000 over 10 days projects to ₴2 900.
-    const status = budgetStatus(
-      budget(),
-      category(),
-      [tx("2028-02-05", 100_000)],
-      "2028-02",
-      "2028-02-10",
-    );
-    expect(status.projected).toBe(290_000);
   });
 });
 
@@ -188,7 +151,7 @@ describe("rollover", () => {
   it("applies the carried credit to the effective limit", () => {
     const rolling = budget({ rollover: 1 });
     const rows = [tx("2026-07-01", 400_000), tx("2026-08-01", 300_000)];
-    const status = budgetStatus(rolling, category(), rows, "2026-08", "2026-08-31");
+    const status = budgetStatus(rolling, category(), rows, "2026-08");
     // ₴6 000 unspent in July, so August's effective limit is ₴16 000.
     expect(status.effectiveLimit).toBe(1_600_000);
     expect(status.remaining).toBe(1_300_000);
@@ -198,13 +161,12 @@ describe("rollover", () => {
     // Rollover is walked forward from the start rather than stored, so editing a later month
     // cannot corrupt an earlier one.
     const rolling = budget({ rollover: 1 });
-    const before = budgetStatus(rolling, category(), [tx("2026-07-01", 400_000)], "2026-07", "2026-08-31");
+    const before = budgetStatus(rolling, category(), [tx("2026-07-01", 400_000)], "2026-07");
     const after = budgetStatus(
       rolling,
       category(),
       [tx("2026-07-01", 400_000), tx("2026-08-01", 999_999)],
       "2026-07",
-      "2026-08-31",
     );
     expect(after.spent).toBe(before.spent);
     expect(after.effectiveLimit).toBe(before.effectiveLimit);
@@ -220,13 +182,13 @@ describe("budgetStatuses", () => {
     ];
     const rows = [tx("2026-08-01", 200_000, "cat_groceries"), tx("2026-08-01", 900_000, "cat_travel")];
 
-    const statuses = budgetStatuses(budgets, categories, rows, "2026-08", "2026-08-31");
+    const statuses = budgetStatuses(budgets, categories, rows, "2026-08");
     expect(statuses.map((s) => s.category.name)).toEqual(["Travel", "Groceries"]);
   });
 
   it("omits categories with no budget", () => {
     const categories = [category("cat_groceries"), category("cat_travel", "Travel")];
-    const statuses = budgetStatuses([budget()], categories, [], "2026-08", "2026-08-31");
+    const statuses = budgetStatuses([budget()], categories, [], "2026-08");
     expect(statuses).toHaveLength(1);
   });
 
@@ -236,7 +198,7 @@ describe("budgetStatuses", () => {
 
   it("converts a limit set in another currency before comparing it with spending", () => {
     const eur = budget({ currency: "EUR", amount_minor: 30_000 }); // €300 = ₴13 500
-    const [status] = budgetStatuses([eur], [category()], [tx("2026-08-02", 900_000)], "2026-08", "2026-08-31", toBase);
+    const [status] = budgetStatuses([eur], [category()], [tx("2026-08-02", 900_000)], "2026-08", toBase);
     expect(status!.effectiveLimit).toBe(1_350_000);
     expect(status!.remaining).toBe(450_000);
   });
@@ -244,13 +206,13 @@ describe("budgetStatuses", () => {
   it("carries rollover in base currency for a foreign limit", () => {
     const eur = budget({ currency: "EUR", amount_minor: 30_000, rollover: 1 });
     const rows = [tx("2026-07-01", 1_000_000), tx("2026-08-01", 100)];
-    const [status] = budgetStatuses([eur], [category()], rows, "2026-08", "2026-08-31", toBase);
+    const [status] = budgetStatuses([eur], [category()], rows, "2026-08", toBase);
     // July left ₴3 500 of ₴13 500 unspent.
     expect(status!.effectiveLimit).toBe(1_350_000 + 350_000);
   });
 
   it("leaves out a limit whose currency has no rate rather than reading it as base", () => {
     const usd = budget({ currency: "USD", amount_minor: 30_000 });
-    expect(budgetStatuses([usd], [category()], [], "2026-08", "2026-08-31", toBase)).toEqual([]);
+    expect(budgetStatuses([usd], [category()], [], "2026-08", toBase)).toEqual([]);
   });
 });

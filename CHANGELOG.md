@@ -1,5 +1,13 @@
 # Changelog
 
+## Version 1.5.7
+
+- Added: budgets in Reports — in This month, each category with a budget shows its limit under what you spent ("of ₴50 000"), in red once it's over. On a computer, By category has a Budget column, and months over the limit are red
+- Added: in a report's list of transactions, tap a transaction to edit or delete it. The list updates straight away
+- Changed: on a phone, Reports opens on This month (the month-by-month view made for a small screen); the table opens on wider screens. Whichever tab you pick last is remembered on that device
+- Removed: the Budgets and Savings sections on Home — budgets now live in Reports
+- Removed: the "On track for …" pace estimate from Budgets
+
 ## Version 1.5.6
 
 - Changed: a new app icon — three stacks of gold coins growing, for savings — on the home screen, in the browser tab and in Android notifications

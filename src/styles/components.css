@@ -215,6 +215,18 @@
   padding: 0.5rem 0.75rem;
 }
 
+/* A month that went past its category's budget. Colour only — the figure is still the figure. */
+.matrix__value--over {
+  color: var(--destructive);
+}
+
+/* The budget column: a reference figure, read beside the months rather than as one of them. */
+.matrix__budget {
+  padding: 0.5rem 0.75rem;
+  color: var(--muted-foreground);
+  white-space: nowrap;
+}
+
 /* Every other row, including its sticky first cell — tinted separately because that cell carries
    its own opaque background to stop content showing through. */
 .matrix tbody tr:nth-child(even) td,

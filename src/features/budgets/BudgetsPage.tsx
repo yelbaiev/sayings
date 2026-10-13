@@ -29,7 +29,7 @@ export function BudgetsPage() {
 
   const { figures, toBase } = useBudgetFigures();
   const statuses = useMemo(
-    () => budgetStatuses(budgets ?? [], categories, transactions, month, todayIso(), toBase),
+    () => budgetStatuses(budgets ?? [], categories, transactions, month, toBase),
     [budgets, categories, transactions, month, toBase],
   );
 
@@ -91,21 +91,6 @@ export function BudgetsPage() {
                       ? t("budgets.over", { amount: formatWhole(-f.remaining, f.currency) })
                       : t("budgets.remaining", { amount: formatWhole(f.remaining, f.currency) })}
                   </span>
-
-                  {/* Run-rate projection, shown only for the month in progress — a finished
-                    month's actual is the answer, and a future month has no run rate. */}
-                  {f.projected !== null && status.projected !== null && (
-                    <span
-                      className={cn(
-                        "sensitive",
-                        status.projected > status.effectiveLimit
-                          ? "text-destructive"
-                          : "text-muted-foreground",
-                      )}
-                    >
-                      {t("budgets.projected", { amount: formatWhole(f.projected, f.currency) })}
-                    </span>
-                  )}
                 </div>
 
                 {status.budget.rollover === 1 && status.effectiveLimit !== status.baseLimit && (

@@ -1,12 +1,11 @@
 import { type Currency } from "@shared/currency";
 import { signedMinor } from "@shared/money";
-import type { Budget, Transaction } from "@shared/schema";
+import type { Transaction } from "@shared/schema";
 import { useEffect, useMemo, useState } from "react";
 import { useApp } from "~/app/AppContext";
 import { Link, useRouter } from "~/app/router";
-import { useAccounts, useBalances, useCategories, useLookups, useTransactions } from "~/db/queries";
-import { db, getDevicePrefs } from "~/db/dexie";
-import { useLiveQuery } from "dexie-react-hooks";
+import { useBalances, useLookups, useTransactions } from "~/db/queries";
+import { getDevicePrefs } from "~/db/dexie";
 import { toBaseAtLatest, useLatestRates } from "~/db/useRates";
 import { addMonths, dayOfMonth, formatMoney, monthOf, todayIso } from "~/lib/format";
 import {
@@ -21,11 +20,9 @@ import {
 import { Button } from "~/ui/Button";
 import { cn } from "~/lib/cn";
 import { CARD, LIST, PAGE, SECTION_TITLE } from "~/ui/recipes";
-import { EntrySheet, type EntryPrefill } from "~/features/entry/EntrySheet";
+import { EntrySheet } from "~/features/entry/EntrySheet";
 import { IntroSheet } from "~/features/intro/IntroSheet";
-import { BudgetGlance } from "./BudgetGlance";
 import { InstallBanner } from "./InstallBanner";
-import { SavingsCard } from "./SavingsCard";
 import { QuickTiles } from "./QuickTiles";
 import { RecurringDuePrompt } from "~/features/recurring/RecurringPage";
 import { TransactionRow } from "~/features/transactions/TransactionRow";
@@ -33,17 +30,13 @@ import { TransactionRow } from "~/features/transactions/TransactionRow";
 /**
  * Home answers three questions, in this order:
  *
- *   1. How much have we spent this month, and is that normal — against last month and against
- *      the limits we set?
- *   2. What did the month leave over, and has it gone to savings?
- *   3. Where is the money right now?
- *   4. What just happened?
+ *   1. How much have we spent this month, and is that normal?
+ *   2. Where is the money right now?
+ *   3. What just happened?
  *
  * Deliberately not a dashboard of charts. Charts belong in Reports, where there is room to
  * read them; here they would be decoration.
  */
-const NO_BUDGETS: Budget[] = [];
-
 export function HomePage() {
   const { t, locale, baseCurrency } = useApp();
   const transactions = useTransactions();
@@ -56,14 +49,6 @@ export function HomePage() {
   const [showIntro, setShowIntro] = useState(false);
   /** Set by the intro's last panel, so finishing it lands in the entry sheet. */
   const [entryOpen, setEntryOpen] = useState(false);
-  /** Set by the savings card: a transfer to savings, filled in and waiting for a check. */
-  const [moving, setMoving] = useState<EntryPrefill | null>(null);
-  const expenseCategories = useCategories("expense");
-  // From the live query rather than mapped off `balances`, which is a fresh array every render.
-  const accounts = useAccounts(true);
-  // Raw rows, filtered here: the engine reads `deleted` itself, and `?? []` inside the query
-  // callback would allocate a new array on every render and defeat the memos downstream.
-  const budgets = useLiveQuery(async () => db.budgets.toArray());
 
   useEffect(() => {
     // Read once on mount. Deliberately not gated on the transaction count: someone restoring from a
@@ -178,22 +163,6 @@ export function HomePage() {
           )}
         </div>
       </section>
-
-      <BudgetGlance
-        budgets={budgets ?? NO_BUDGETS}
-        categories={expenseCategories}
-        transactions={transactions}
-        today={today}
-      />
-
-      <SavingsCard
-        transactions={transactions}
-        accounts={accounts}
-        budgets={budgets ?? NO_BUDGETS}
-        categories={expenseCategories}
-        today={today}
-        onMove={setMoving}
-      />
 
       <section className="mb-6">
         <h2 className={SECTION_TITLE}>{t("home.accounts")}</h2>
@@ -331,17 +300,6 @@ export function HomePage() {
           onClose={() => setEntryOpen(false)}
           onSaved={(spec) => {
             setEntryOpen(false);
-            if (spec) setToast(spec);
-          }}
-        />
-      )}
-
-      {moving && (
-        <EntrySheet
-          prefill={moving}
-          onClose={() => setMoving(null)}
-          onSaved={(spec) => {
-            setMoving(null);
             if (spec) setToast(spec);
           }}
         />
