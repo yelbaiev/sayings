@@ -1,5 +1,9 @@
 # Changelog
 
+## Version 1.6.1
+
+- Changed: the app icon's coins are graphite instead of gold, stacked two, four and three from left to right. Remove SAYings from the iPhone home screen and add it again to see the new icon
+
 ## Version 1.6.0
 
 - Changed: History has a search box and one Filter button on a single line instead of three dropdowns; whatever is applied shows as a chip you tap to remove

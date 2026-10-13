@@ -3,15 +3,15 @@
      The coins sit inside the maskable safe zone (a circle of 40% radius). -->
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" width="512" height="512">
   <rect width="512" height="512" fill="#0B0B0D"/>
-  <g fill="#F5B83D" stroke="#0B0B0D" stroke-width="8">
+  <g fill="#80848A" stroke="#0B0B0D" stroke-width="8">
     <rect x="84" y="288" width="104" height="44" rx="22"/>
     <rect x="84" y="252" width="104" height="44" rx="22"/>
     <rect x="204" y="288" width="104" height="44" rx="22"/>
     <rect x="204" y="252" width="104" height="44" rx="22"/>
     <rect x="204" y="216" width="104" height="44" rx="22"/>
+    <rect x="204" y="180" width="104" height="44" rx="22"/>
     <rect x="324" y="288" width="104" height="44" rx="22"/>
     <rect x="324" y="252" width="104" height="44" rx="22"/>
     <rect x="324" y="216" width="104" height="44" rx="22"/>
-    <rect x="324" y="180" width="104" height="44" rx="22"/>
   </g>
 </svg>
