@@ -13,7 +13,10 @@
     <meta name="theme-color" content="#FFFFFF" media="(prefers-color-scheme: light)" />
     <meta name="theme-color" content="#0B0B0D" media="(prefers-color-scheme: dark)" />
 
-    <link rel="manifest" href="/manifest.webmanifest" />
+    <!-- use-credentials: a manifest is otherwise fetched without cookies, and behind Cloudflare
+         Access that request gets the sign-in page instead of JSON. The icon files themselves are
+         exempted from Access by a bypass application — see SELF-HOSTING.md. -->
+    <link rel="manifest" href="/manifest.webmanifest" crossorigin="use-credentials" />
     <link rel="icon" href="/icon.svg" type="image/svg+xml" />
     <link rel="apple-touch-icon" href="/apple-touch-icon.png" />
 

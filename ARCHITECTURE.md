@@ -25,7 +25,7 @@ rates, stores files, and backs up — it never computes a report.
 │    IndexedDB mirror (Dexie) ── every read, every report  │
 │    outbox ── drains in background, never blocks a save    │
 │    src/lib/*.ts ── pure engines: reports, budgets, fx,    │
-│                    prediction, keypad arithmetic          │
+│                    savings, prediction, keypad arithmetic │
 └──────────────────────────────────────────────────────────┘
 ```
 
@@ -60,6 +60,10 @@ rates, stores files, and backs up — it never computes a report.
 - **Balances are derived, never stored.** A stored balance is a second source of truth.
 - **Category and account names are shared data, not translated strings.** Both members read the
   interface in their own language but see one ledger.
+- **Money left under a budget is part of the month's leftover, never added to it.** The savings
+  suggestion (`src/lib/savings.ts`) is income − expenses less net transfers into `savings`-type
+  accounts; the under-limit figure only explains where part of it came from. Rollover limits are
+  left out of that figure because their unspent amount already belongs to next month.
 - **No dynamic code evaluation.** `no-eval` / `no-new-func` are errors; a test asserts the
   keypad's evaluator module contains neither.
 

@@ -1,5 +1,11 @@
 # Changelog
 
+## Version 1.5.4
+
+- Added: Home shows your budgets — the categories close to their limit, over it, or on pace to go over, with a link to all budgets. When everything is fine it's one "on track" line
+- Added: a savings card on Home — what the month left over (income minus expenses), what's already gone to savings, and a Move button that opens a transfer to your savings account with the rest filled in. Change the amount before saving if you like
+- Added: in the first week of a month the card shows last month's result, including how much of the leftover came from staying under your limits and which categories went over
+
 ## Version 1.5.3
 
 - Fixed: when the sign-in expired, the installed iPhone app showed a dark empty screen and never reached the login page. It now goes to the Cloudflare sign-in and returns to the screen you were on
