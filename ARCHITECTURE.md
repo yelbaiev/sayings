@@ -61,12 +61,13 @@ rates, stores files, and backs up — it never computes a report.
 - **Category and account names are shared data, not translated strings.** Both members read the
   interface in their own language but see one ledger.
 - **A budget limit keeps the currency it was set in.** It is converted to the base at today's rate
-  when read (`ToBase` in `src/lib/budget-engine.ts`) and shown back in its own currency; a limit
-  with no rate is left out rather than read as base. A base change converts only limits in the old
+  when read (`ToBase` in `src/lib/budget-engine.ts`); a limit with no rate is left out rather than
+  read as base. A base change converts only limits in the old
   base (`worker/reprice.ts`).
-- **Reports show the plain monthly limit.** "This month" and the monthly table compare a category's
-  spending with `budgetFor(...)` for that month — no rollover, no pace. Carried-over amounts are
-  the Budgets page's business; a report answers "what was the budget and did we keep to it".
+- **A budget is a monthly limit per category, nothing more.** `src/lib/budget-engine.ts` answers two
+  questions — which limit applies (`budgetFor`) and what it is worth in base (`limitInBase`). No
+  carry-over, no pace. Spending against it is shown only in Reports; the Budgets page is the list
+  of limits. A limit in another currency is read in that currency ("€763 of €650").
 - **No dynamic code evaluation.** `no-eval` / `no-new-func` are errors; a test asserts the
   keypad's evaluator module contains neither.
 

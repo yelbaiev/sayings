@@ -1,5 +1,12 @@
 # Changelog
 
+## Version 1.5.8
+
+- Changed: the Budgets page is now just the list of your limits — category and amount. Tap one to change or delete it
+- Changed: a budget in euros reads in euros in Reports — "€763 of €650" instead of "₴38 345 of €650"
+- Changed: in the By category table the budget is shown under the category's name instead of in a separate column
+- Removed: "Carry unspent into next month" and "Every month" — every budget is a plain monthly limit. Limits you set for a single month keep working and are labelled with their month
+
 ## Version 1.5.7
 
 - Added: budgets in Reports — in This month, each category with a budget shows its limit under what you spent ("of ₴50 000"), in red once it's over. On a computer, By category has a Budget column, and months over the limit are red

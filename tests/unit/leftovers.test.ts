@@ -3,8 +3,7 @@ import type { Budget, Recurring, Transaction } from "@shared/schema";
 import { describe, expect, it } from "vitest";
 import { mergeWrites } from "~/features/categories/merge";
 import { exportFiles } from "~/features/settings/export";
-import { rolloverCredit } from "~/lib/budget-engine";
-import { addMonths, formatAmount } from "~/lib/format";
+import { formatAmount } from "~/lib/format";
 import { crc32, zipStore } from "~/lib/zip";
 
 /** The small fixes from the 2026-10-03 bug check that close the data-integrity plan. */
@@ -36,20 +35,6 @@ const spend = (month: string, amount: number, category = "cat_groceries") =>
     account_id: "a",
     deleted: 0,
   }) as Transaction;
-
-describe("rollover window", () => {
-  it("counts the most recent 36 months, not the first 36", () => {
-    // Five years of history. Old months underspent by 1 000; the last 36 overspent by 500.
-    const rows: Transaction[] = [];
-    for (let i = 60; i >= 1; i--) {
-      const month = addMonths("2026-10", -i);
-      rows.push(spend(month, i > 36 ? 0 : 1_500));
-    }
-    // 36 months × (1 000 limit − 1 500 spent) = −18 000. The old walk counted the first 36 months
-    // instead: 24 × +1 000 and 12 × −500 = +18 000 — the opposite sign.
-    expect(rolloverCredit(budget(), rows, "2026-10")).toBe(-18_000);
-  });
-});
 
 describe("currency digits in plain amounts", () => {
   it("shows no decimals for yen and three for dinar", () => {

@@ -6,7 +6,7 @@ import { useMemo, useState } from "react";
 import { useApp } from "~/app/AppContext";
 import { db } from "~/db/dexie";
 import { useAccounts, useCategories, useLookups, useMembers, useTransactions } from "~/db/queries";
-import { useLatestRates, useToBase } from "~/db/useRates";
+import { fromBaseAtLatest, useLatestRates, useToBase } from "~/db/useRates";
 import { EntrySheet } from "~/features/entry/EntrySheet";
 import { TransactionRow } from "~/features/transactions/TransactionRow";
 import { budgetFor, limitInBase } from "~/lib/budget-engine";
@@ -95,6 +95,7 @@ export function ReportsPage() {
   // Raw rows; `budgetFor` skips deleted ones. The fallback is a constant so memos stay stable.
   const budgets = useLiveQuery(async () => db.budgets.toArray()) ?? NO_BUDGETS;
   const toBase = useToBase(baseCurrency);
+  const latestRates = useLatestRates(baseCurrency);
   const [editing, setEditing] = useState<Transaction | undefined>(undefined);
   const [toast, setToast] = useState<ToastSpec | null>(null);
   const [period, setPeriod] = useState<Period>("month");
@@ -188,28 +189,43 @@ export function ReportsPage() {
   }
 
   /**
-   * A category's budget for a month, for display beside its figures: the limit as set, in the
-   * currency it was set in, and the same limit in base for the over/under comparison.
+   * A category's budget for a month: the limit in base for the over/under comparison, and a line
+   * that reads in one currency.
    *
-   * The plain monthly limit, with no rollover and no projection. Reports answer "what was the
-   * budget and did we keep to it"; the Budgets page is where carried-over amounts live.
+   * "₴38 345 of €650" asked the reader to convert in their head. A limit set in euros is therefore
+   * read in euros — "€763 of €650", spending converted at today's rate — and a limit in the base
+   * stays "of ₴50 000" under the figure that is already in hryvnia.
+   *
+   * The plain monthly limit, with no carry-over and no pace: "what was the budget, did we keep to it".
    */
   function budgetOf(categoryId: string, bucket: string) {
     const budget = budgetFor(budgets, categoryId, bucket);
     if (!budget) return null;
     const inBase = limitInBase(budget, toBase);
     if (inBase === null) return null;
+    const currency = budget.currency as Currency;
+    const limitText = formatMoney(budget.amount_minor, currency, locale);
     return {
-      label: formatMoney(budget.amount_minor, budget.currency as Currency, locale),
       inBase,
+      /**
+       * Under the category's name in the table, whose figures are all in base: "₴50 000", or
+       * "€650 ≈ ₴32 657" so a euro limit can be held against the hryvnia columns beside it.
+       */
+      tableText:
+        currency === baseCurrency
+          ? limitText
+          : `${limitText} ≈ ${formatMoney(inBase, baseCurrency, locale)}`,
+      /** The line under a category's amount in This month. */
+      lineFor(spentInBase: number) {
+        if (currency === baseCurrency) return t("reports.ofBudget", { amount: limitText });
+        const spent = fromBaseAtLatest(spentInBase, currency, latestRates, baseCurrency) ?? 0;
+        return t("reports.spentOfBudget", {
+          spent: formatMoney(spent, currency, locale),
+          limit: limitText,
+        });
+      },
     };
   }
-
-  // Shown only in the monthly table, and only when some category has a budget at all.
-  const showBudgetColumn =
-    period === "month" &&
-    kind === "expense" &&
-    matrix.rows.some((row) => budgetFor(budgets, row.category.id, monthOf(todayIso())));
 
   return (
     <div className="mx-auto w-full max-w-5xl p-4">
@@ -283,9 +299,6 @@ export function ReportsPage() {
               <thead>
                 <tr>
                   <th className="matrix__corner">{t("entry.category")}</th>
-                  {showBudgetColumn && (
-                    <th className="matrix__period">{t("reports.budget")}</th>
-                  )}
                   {matrixPeriods.map((bucket) => (
                     <th key={bucket} className="matrix__period">
                       {period === "month" ? formatMonthShort(bucket, locale) : bucket}
@@ -299,7 +312,6 @@ export function ReportsPage() {
                   <th scope="row" className="matrix__category">
                     {kind === "expense" ? t("reports.totalExpenses") : t("reports.totalIncome")}
                   </th>
-                  {showBudgetColumn && <td className="matrix__cell" />}
                   {matrixPeriods.map((bucket) => (
                     <td key={bucket} className="matrix__cell matrix__cell--total">
                       {formatAmount(matrix.totalsByPeriod.get(bucket) ?? 0, baseCurrency, locale)}
@@ -314,16 +326,28 @@ export function ReportsPage() {
                 {matrix.rows.map((row) => (
                   <tr key={row.category.id}>
                     <th scope="row" className="matrix__category">
-                      <span className="flex flex-wrap items-center gap-2">
+                      {/* The budget sits under the name, in the same column — a separate Budget
+                          column pushed the months a whole column further off a phone screen. */}
+                      <span className="flex items-center gap-2">
                         <IconChip icon={row.category.icon} color={row.category.color} small />
-                        {row.category.name}
+                        <span className="min-w-0">
+                          <span className="block">{row.category.name}</span>
+                          {(() => {
+                            const limit =
+                              period === "month" && kind === "expense"
+                                ? budgetOf(row.category.id, monthOf(todayIso()))
+                                : null;
+                            return (
+                              limit && (
+                                <span className="sensitive block text-xs font-normal text-muted-foreground">
+                                  {t("reports.budgetLine", { amount: limit.tableText })}
+                                </span>
+                              )
+                            );
+                          })()}
+                        </span>
                       </span>
                     </th>
-                    {showBudgetColumn && (
-                      <td className="matrix__cell matrix__budget sensitive">
-                        {budgetOf(row.category.id, monthOf(todayIso()))?.label ?? ""}
-                      </td>
-                    )}
                     {matrixPeriods.map((bucket) => {
                       const value = row.byPeriod.get(bucket) ?? 0;
                       const limit =
@@ -419,12 +443,7 @@ export function ReportsPage() {
                 read, which is as many as fit under a thumb. The arrows above still step one at a
                 time, and the window follows them. */}
             <div className="mt-4">
-              <PeriodStrip
-                bars={monthBars}
-                selected={month}
-                onSelect={setMonth}
-                tone={monthKind}
-              />
+              <PeriodStrip bars={monthBars} selected={month} onSelect={setMonth} tone={monthKind} />
             </div>
           </div>
 
@@ -491,7 +510,8 @@ export function ReportsPage() {
                 />
                 {(() => {
                   const limit = monthKind === "expense" ? budgetOf(row.category.id, month) : null;
-                  if (!limit) return <Amount minor={row.total} currency={baseCurrency} tone="neutral" />;
+                  if (!limit)
+                    return <Amount minor={row.total} currency={baseCurrency} tone="neutral" />;
                   // The budget under the figure, and the figure red once past it. Nothing more:
                   // no bar and no pace — the number against the number is the whole question.
                   return (
@@ -502,7 +522,7 @@ export function ReportsPage() {
                         tone={row.total > limit.inBase ? "expense" : "neutral"}
                       />
                       <span className="sensitive block text-xs text-muted-foreground">
-                        {t("reports.ofBudget", { amount: limit.label })}
+                        {limit.lineFor(row.total)}
                       </span>
                     </span>
                   );
@@ -528,33 +548,37 @@ export function ReportsPage() {
               rows below answer "on which card". Different questions, one tab. */}
           <div className="mb-3">
             <CashflowChart
-              points={cashflowOverTime(transactions, periodRange(range.from, range.to, period), period)}
+              points={cashflowOverTime(
+                transactions,
+                periodRange(range.from, range.to, period),
+                period,
+              )}
               currency={baseCurrency}
             />
           </div>
 
           <div className={LIST}>
-          {cashflowByAccount(transactions, accounts, range.from, range.to).map((row) => (
-            <div key={row.account.id} className={cn(ROW, "hover:bg-accent active:bg-accent")}>
-              <IconChip icon={row.account.icon} color={row.account.color} />
-              <span className="min-w-0 flex-1">
-                <span className={ROW_TITLE}>{row.account.name}</span>
-                {/* The account's own currency, not the base one. These figures are that card's
+            {cashflowByAccount(transactions, accounts, range.from, range.to).map((row) => (
+              <div key={row.account.id} className={cn(ROW, "hover:bg-accent active:bg-accent")}>
+                <IconChip icon={row.account.icon} color={row.account.color} />
+                <span className="min-w-0 flex-1">
+                  <span className={ROW_TITLE}>{row.account.name}</span>
+                  {/* The account's own currency, not the base one. These figures are that card's
                     movements, summed natively — printing a euro card's €500 with a ₴ beside it
                     was two different units on one line. */}
-                <span className={cn(ROW_SUB, "sensitive")}>
-                  +{formatAmount(row.inflow, row.account.currency as Currency, locale)} · −
-                  {formatAmount(row.outflow, row.account.currency as Currency, locale)}
+                  <span className={cn(ROW_SUB, "sensitive")}>
+                    +{formatAmount(row.inflow, row.account.currency as Currency, locale)} · −
+                    {formatAmount(row.outflow, row.account.currency as Currency, locale)}
+                  </span>
                 </span>
-              </span>
-              <Amount
-                minor={row.net}
-                currency={row.account.currency as Currency}
-                tone={row.net < 0 ? "expense" : "income"}
-                signed
-              />
-            </div>
-          ))}
+                <Amount
+                  minor={row.net}
+                  currency={row.account.currency as Currency}
+                  tone={row.net < 0 ? "expense" : "income"}
+                  signed
+                />
+              </div>
+            ))}
           </div>
         </>
       )}
